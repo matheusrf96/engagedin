@@ -38,43 +38,19 @@ def auth_login() -> None:
         )
         raise SystemExit(1)
 
-    import http.server
     import secrets
     import threading
-    import urllib.parse
+
+    from engagedin.linkedin.auth import OAuthCallbackHandler
 
     state = secrets.token_urlsafe(32)
     auth_url = build_authorization_url(state)
 
-    authorization_code = None
+    OAuthCallbackHandler.authorization_code = None
+    OAuthCallbackHandler.expected_state = state
 
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            nonlocal authorization_code
-            parsed = urllib.parse.urlparse(self.path)
-            params = urllib.parse.parse_qs(parsed.query)
-            returned_state = params.get("state", [None])[0]
-            code = params.get("code", [None])[0]
-
-            if returned_state != state:
-                self.send_response(400)
-                self.end_headers()
-                self.wfile.write(b"State mismatch")
-                return
-
-            if code:
-                authorization_code = code
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(
-                    b"Authentication successful! You can close this tab."
-                )
-            else:
-                self.send_response(400)
-                self.end_headers()
-                self.wfile.write(b"Authorization failed")
-
-    server = http.server.HTTPServer(("localhost", 18473), Handler)
+    import http.server
+    server = http.server.HTTPServer(("localhost", 18473), OAuthCallbackHandler)
     thread = threading.Thread(target=server.serve_forever)
     thread.daemon = True
     thread.start()
@@ -89,12 +65,13 @@ def auth_login() -> None:
     server.handle_request()
     server.server_close()
 
-    if not authorization_code:
+    code = OAuthCallbackHandler.authorization_code
+    if not code:
         console.print("[red]Authorization failed or was cancelled[/red]")
         raise SystemExit(1)
 
     console.print("[green]Authorization code received, exchanging for token...[/green]")
-    token = exchange_code_for_token(authorization_code)
+    token = exchange_code_for_token(code)
 
     access_token = token.get("access_token", "")
     if not access_token:

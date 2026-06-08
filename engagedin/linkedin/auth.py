@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import http.server
+import urllib.parse
+from typing import ClassVar
 from urllib.parse import urlencode
 
 import httpx
@@ -12,6 +15,35 @@ LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization"
 LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
 LINKEDIN_SCOPES = ["openid", "profile", "email", "w_member_social"]
 REDIRECT_URI = "http://localhost:18473/callback"
+
+
+class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
+    authorization_code: ClassVar[str | None] = None
+    expected_state: ClassVar[str] = ""
+
+    def do_GET(self) -> None:
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        returned_state = params.get("state", [None])[0]
+        code = params.get("code", [None])[0]
+
+        if returned_state != self.expected_state:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"State mismatch")
+            return
+
+        if code:
+            OAuthCallbackHandler.authorization_code = code
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(
+                b"Authentication successful! You can close this tab."
+            )
+        else:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"Authorization failed")
 
 
 def build_authorization_url(state: str) -> str:
