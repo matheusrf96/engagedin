@@ -1,0 +1,22 @@
+tone: professional
+min_length: 150
+max_length: 3000
+hashtags:
+  count: 3
+  style: lowercase
+schedule:
+  best_times:
+    - "7-9"
+    - "12-13"
+    - "17-18"
+  cooldown_hours: 4
+templates:
+  hooks:
+    - question
+    - statistic
+    - story
+    - bold_statement
+  outros:
+    - cta_question
+    - cta_discuss
+    - reflection
