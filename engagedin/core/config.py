@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "deepseek-chat"
 
+    news_source: str = "hackernews"
+    news_api_key: str = ""
+
     rules_path: str = ""
 
 

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import http.server
+import secrets
+import threading
+import webbrowser
+
 import click
 import yaml
 from rich.console import Console
@@ -9,6 +14,7 @@ from rich.prompt import Confirm
 from engagedin.core.config import settings
 from engagedin.core.engine import Engine
 from engagedin.linkedin.auth import (
+    OAuthCallbackHandler,
     build_authorization_url,
     exchange_code_for_token,
     get_user_urn,
@@ -38,18 +44,12 @@ def auth_login() -> None:
         )
         raise SystemExit(1)
 
-    import secrets
-    import threading
-
-    from engagedin.linkedin.auth import OAuthCallbackHandler
-
     state = secrets.token_urlsafe(32)
     auth_url = build_authorization_url(state)
 
     OAuthCallbackHandler.authorization_code = None
     OAuthCallbackHandler.expected_state = state
 
-    import http.server
     server = http.server.HTTPServer(("localhost", 18473), OAuthCallbackHandler)
     thread = threading.Thread(target=server.serve_forever)
     thread.daemon = True
@@ -59,7 +59,6 @@ def auth_login() -> None:
         "[bold]Opening browser for LinkedIn authorization...[/bold]"
     )
     console.print(f"If the browser doesn't open, visit:\n{auth_url}")
-    import webbrowser
     webbrowser.open(auth_url)
 
     server.handle_request()
@@ -161,6 +160,62 @@ def draft(topic: str, rules: str | None) -> None:
             border_style="blue",
         )
     )
+
+
+@cli.command()
+@click.option(
+    "--days",
+    "-d",
+    type=click.IntRange(1, 7),
+    default=1,
+    help="Days of news to consider (1-7)",
+)
+@click.option(
+    "--topic",
+    "-t",
+    default="technology",
+    help="News topic (e.g., AI, cybersecurity)",
+)
+@click.option("--rules", "-r", help="Path to custom ruleset YAML")
+@click.option(
+    "--yes", "-y", is_flag=True, help="Skip confirmation prompt"
+)
+def headliner(
+    days: int, topic: str, rules: str | None, yes: bool
+) -> None:
+    """Generate an opinionated LinkedIn post based on recent tech news."""
+    engine = Engine(rules_path=rules)
+
+    with console.status("[bold green]Fetching latest tech news..."):
+        draft = engine.generate_headliner_draft(days=days, topic=topic)
+
+    console.print(
+        Panel(
+            draft.content,
+            title=f"📝 Headliner Draft ({draft.character_count} chars)",
+            border_style="blue",
+        )
+    )
+
+    if draft.character_count < 100:
+        console.print(
+            "[yellow]Warning: Post is very short. Consider a more detailed topic.[/yellow]"
+        )
+    if draft.character_count > 3000:
+        console.print(
+            "[yellow]Warning: Post exceeds 3000 characters (LinkedIn limit).[/yellow]"
+        )
+
+    if not yes:
+        confirm = Confirm.ask("Publish this post to LinkedIn?")
+        if not confirm:
+            console.print("[yellow]Cancelled[/yellow]")
+            raise SystemExit(0)
+
+    with console.status("[bold green]Publishing to LinkedIn..."):
+        post_urn = engine.publish_draft(draft)
+
+    console.print(f"[green]Published! Post URN: {post_urn}[/green]")
 
 
 @cli.group()

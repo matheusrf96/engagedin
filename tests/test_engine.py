@@ -9,6 +9,8 @@ from engagedin.core.engine import Engine
 from engagedin.core.models import GeneratedDraft, PostRuleset
 from engagedin.linkedin.client import LinkedInClient
 from engagedin.llm.client import LLMClient
+from engagedin.news.client import NewsClient
+from engagedin.news.models import NewsArticle
 
 
 @pytest.fixture
@@ -89,3 +91,51 @@ def test_generate_and_publish() -> None:
 
     assert draft.content == "Full post content with hashtags"
     assert post_urn == "urn:li:share:67890"
+
+
+def test_generate_headliner_draft() -> None:
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_llm.generate_headliner_post.return_value = "Opinion about AI news"
+    mock_linkedin = MagicMock(spec=LinkedInClient)
+    mock_news_client = MagicMock(spec=NewsClient)
+    mock_news_client.fetch_tech_news.return_value = [
+        NewsArticle(
+            title="AI News",
+            source="Hacker News",
+            url="https://example.com",
+            description="AI description",
+            published_at="2026-06-09T12:00:00Z",
+        ),
+    ]
+
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=mock_llm,
+        linkedin_client=mock_linkedin,
+        news_client=mock_news_client,
+    )
+    draft = engine.generate_headliner_draft(days=3, topic="AI")
+
+    assert draft.content == "Opinion about AI news"
+    assert draft.character_count == len("Opinion about AI news")
+    mock_llm.generate_headliner_post.assert_called_once()
+    call_args = mock_llm.generate_headliner_post.call_args
+    assert call_args[0][0] == "AI"
+    assert call_args[0][2] == engine.ruleset
+    assert call_args[1]["days"] == 3
+
+
+def test_generate_headliner_draft_no_articles() -> None:
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_linkedin = MagicMock(spec=LinkedInClient)
+    mock_news_client = MagicMock(spec=NewsClient)
+    mock_news_client.fetch_tech_news.return_value = []
+
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=mock_llm,
+        linkedin_client=mock_linkedin,
+        news_client=mock_news_client,
+    )
+    with pytest.raises(RuntimeError, match="No news articles found"):
+        engine.generate_headliner_draft(days=1, topic="obscure")

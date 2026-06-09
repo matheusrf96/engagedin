@@ -295,3 +295,75 @@ def test_auth_login_no_access_token(
 
     assert result.exit_code == 1
     assert "Failed to obtain access token" in result.output
+
+
+def test_headliner_defaults(runner: CliRunner) -> None:
+    mock_engine = MagicMock()
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="Opinative post about tech news",
+        character_count=30,
+    )
+    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
+        result = runner.invoke(cli, ["headliner", "--yes"])
+
+    assert result.exit_code == 0
+    assert "Opinative post about tech news" in result.output
+    assert "Headliner Draft" in result.output
+    mock_engine.generate_headliner_draft.assert_called_once_with(
+        days=1, topic="technology"
+    )
+
+
+def test_headliner_with_options(runner: CliRunner) -> None:
+    mock_engine = MagicMock()
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="AI opinion piece",
+        character_count=16,
+    )
+    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
+        result = runner.invoke(
+            cli, ["headliner", "--days", "3", "--topic", "AI", "--yes"]
+        )
+
+    assert result.exit_code == 0
+    assert "AI opinion piece" in result.output
+    mock_engine.generate_headliner_draft.assert_called_once_with(
+        days=3, topic="AI"
+    )
+
+
+def test_headliner_cancelled(runner: CliRunner) -> None:
+    mock_engine = MagicMock()
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="Draft that gets cancelled",
+        character_count=25,
+    )
+    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
+        result = runner.invoke(cli, ["headliner", "-d", "7"], input="n\n")
+
+    assert result.exit_code == 0
+    assert "Cancelled" in result.output
+
+
+def test_headliner_short_warning(runner: CliRunner) -> None:
+    mock_engine = MagicMock()
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="Hi",
+        character_count=2,
+    )
+    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
+        result = runner.invoke(cli, ["headliner", "--yes"])
+
+    assert "very short" in result.output
+
+
+def test_headliner_long_warning(runner: CliRunner) -> None:
+    mock_engine = MagicMock()
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="A" * 3001,
+        character_count=3001,
+    )
+    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
+        result = runner.invoke(cli, ["headliner", "--yes"])
+
+    assert "exceeds 3000" in result.output
