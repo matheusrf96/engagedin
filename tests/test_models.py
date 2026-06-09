@@ -46,6 +46,7 @@ def test_tone_values() -> None:
         "provocative",
         "educational",
         "storytelling",
+        "opinative",
     ]
 
 
