@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -15,19 +16,19 @@ from engagedin.linkedin.auth import (
 
 
 @pytest.fixture
-def mock_auth_settings():
+def mock_auth_settings() -> Generator[MagicMock, None, None]:
     with patch("engagedin.linkedin.auth.settings") as m:
         yield m
 
 
 @pytest.fixture
-def mock_oauth2client():
+def mock_oauth2client() -> Generator[MagicMock, None, None]:
     with patch("engagedin.linkedin.auth.OAuth2Client") as m:
         yield m
 
 
 @pytest.fixture
-def mock_httpx_get():
+def mock_httpx_get() -> Generator[MagicMock, None, None]:
     with patch("httpx.get") as m:
         yield m
 
