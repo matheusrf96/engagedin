@@ -80,7 +80,7 @@ def test_generate_post_custom_provider(
     result = client.generate_post("custom provider", ruleset)
 
     assert result == "Response"
-    assert mock_complete.call_args[1]["model"] == "gpt-4o"
+    assert mock_completion_fn.call_args[1]["model"] == "gpt-4o"
 
 
 def test_generate_headliner_post() -> None:
@@ -108,7 +108,7 @@ def test_generate_headliner_post() -> None:
         mock_settings.llm_model = "deepseek-chat"
 
         client = LLMClient()
-        ruleset = PostRuleset(tone="opinative")
+        ruleset = PostRuleset(tone="opinative")  # type: ignore
         result = client.generate_headliner_post(
             "AI", articles, ruleset, days=1
         )
