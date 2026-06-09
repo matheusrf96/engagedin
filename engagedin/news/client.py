@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import time as time_module
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from engagedin.core.config import settings
 from engagedin.news.models import NewsArticle
 
 HN_BASE = "https://hacker-news.firebaseio.com/v0"
@@ -20,11 +21,11 @@ class NewsError(Exception):
 class NewsClient:
     def __init__(
         self,
-        source: str = "hackernews",
+        source: str | None = None,
         api_key: str | None = None,
     ) -> None:
-        self.source = source
-        self.api_key = api_key
+        self.source = source or settings.news_source
+        self.api_key = api_key or settings.news_api_key or None
 
     def fetch_tech_news(
         self, days: int = 1, topic: str = "technology"
@@ -57,6 +58,8 @@ class NewsClient:
             return None
 
         title: str = item.get("title", "") or ""
+        # HN is tech-focused, so "technology" accepts all stories;
+        # other topics require a keyword match in the title.
         topic_lower = topic.lower()
         if topic != "technology" and topic_lower not in title.lower():
             return None
@@ -72,7 +75,7 @@ class NewsClient:
     def _fetch_from_hackernews(
         self, days: int, topic: str
     ) -> list[NewsArticle]:
-        cutoff = time_module.time() - days * 86400
+        cutoff = time.time() - days * 86400
 
         with httpx.Client(timeout=15.0) as client:
             resp = client.get(f"{HN_BASE}/topstories.json")
@@ -80,7 +83,8 @@ class NewsClient:
             story_ids: list[int] = resp.json()[:100]
 
             articles: list[NewsArticle] = []
-            with ThreadPoolExecutor(max_workers=HN_MAX_WORKERS) as pool:
+            pool = ThreadPoolExecutor(max_workers=HN_MAX_WORKERS)
+            try:
                 futures = {
                     pool.submit(self._fetch_item, client, sid, cutoff, topic): sid
                     for sid in story_ids
@@ -91,6 +95,8 @@ class NewsClient:
                         articles.append(result)
                         if len(articles) >= 20:
                             break
+            finally:
+                pool.shutdown(wait=False, cancel_futures=True)
 
         return articles
 

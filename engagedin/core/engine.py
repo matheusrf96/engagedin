@@ -17,10 +17,12 @@ class Engine:
         rules_path: str | Path | None = None,
         llm_client: LLMClient | None = None,
         linkedin_client: LinkedInClient | None = None,
+        news_client: NewsClient | None = None,
     ) -> None:
         self.ruleset = ruleset or load_ruleset(rules_path)
         self.llm = llm_client or LLMClient()
         self.linkedin = linkedin_client or LinkedInClient()
+        self.news = news_client or NewsClient()
 
     def generate_draft(self, topic: str) -> GeneratedDraft:
         content = self.llm.generate_post(topic, self.ruleset)
@@ -34,11 +36,7 @@ class Engine:
         days: int = 1,
         topic: str = "technology",
     ) -> GeneratedDraft:
-        news_client = NewsClient(
-            source=settings.news_source,
-            api_key=settings.news_api_key or None,
-        )
-        articles = news_client.fetch_tech_news(days=days, topic=topic)
+        articles = self.news.fetch_tech_news(days=days, topic=topic)
         if not articles:
             raise RuntimeError(
                 f"No news articles found for topic '{topic}' in the last {days} day(s)"

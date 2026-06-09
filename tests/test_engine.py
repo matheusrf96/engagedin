@@ -108,15 +108,13 @@ def test_generate_headliner_draft() -> None:
         ),
     ]
 
-    with patch(
-        "engagedin.core.engine.NewsClient", return_value=mock_news_client
-    ):
-        engine = Engine(
-            ruleset=PostRuleset(),
-            llm_client=mock_llm,
-            linkedin_client=mock_linkedin,
-        )
-        draft = engine.generate_headliner_draft(days=3, topic="AI")
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=mock_llm,
+        linkedin_client=mock_linkedin,
+        news_client=mock_news_client,
+    )
+    draft = engine.generate_headliner_draft(days=3, topic="AI")
 
     assert draft.content == "Opinion about AI news"
     assert draft.character_count == len("Opinion about AI news")
@@ -133,13 +131,11 @@ def test_generate_headliner_draft_no_articles() -> None:
     mock_news_client = MagicMock(spec=NewsClient)
     mock_news_client.fetch_tech_news.return_value = []
 
-    with patch(
-        "engagedin.core.engine.NewsClient", return_value=mock_news_client
-    ):
-        engine = Engine(
-            ruleset=PostRuleset(),
-            llm_client=mock_llm,
-            linkedin_client=mock_linkedin,
-        )
-        with pytest.raises(RuntimeError, match="No news articles found"):
-            engine.generate_headliner_draft(days=1, topic="obscure")
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=mock_llm,
+        linkedin_client=mock_linkedin,
+        news_client=mock_news_client,
+    )
+    with pytest.raises(RuntimeError, match="No news articles found"):
+        engine.generate_headliner_draft(days=1, topic="obscure")
