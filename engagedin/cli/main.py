@@ -163,6 +163,62 @@ def draft(topic: str, rules: str | None) -> None:
     )
 
 
+@cli.command()
+@click.option(
+    "--days",
+    "-d",
+    type=click.IntRange(1, 7),
+    default=1,
+    help="Days of news to consider (1-7)",
+)
+@click.option(
+    "--topic",
+    "-t",
+    default="technology",
+    help="News topic (e.g., AI, cybersecurity)",
+)
+@click.option("--rules", "-r", help="Path to custom ruleset YAML")
+@click.option(
+    "--yes", "-y", is_flag=True, help="Skip confirmation prompt"
+)
+def headliner(
+    days: int, topic: str, rules: str | None, yes: bool
+) -> None:
+    """Generate an opinative LinkedIn post based on recent tech news."""
+    engine = Engine(rules_path=rules)
+
+    with console.status("[bold green]Fetching latest tech news..."):
+        draft = engine.generate_headliner_draft(days=days, topic=topic)
+
+    console.print(
+        Panel(
+            draft.content,
+            title=f"📝 Headliner Draft ({draft.character_count} chars)",
+            border_style="blue",
+        )
+    )
+
+    if draft.character_count < 100:
+        console.print(
+            "[yellow]Warning: Post is very short. Consider a more detailed topic.[/yellow]"
+        )
+    if draft.character_count > 3000:
+        console.print(
+            "[yellow]Warning: Post exceeds 3000 characters (LinkedIn limit).[/yellow]"
+        )
+
+    if not yes:
+        confirm = Confirm.ask("Publish this post to LinkedIn?")
+        if not confirm:
+            console.print("[yellow]Cancelled[/yellow]")
+            raise SystemExit(0)
+
+    with console.status("[bold green]Publishing to LinkedIn..."):
+        post_urn = engine.publish_draft(draft)
+
+    console.print(f"[green]Published! Post URN: {post_urn}[/green]")
+
+
 @cli.group()
 def rules() -> None:
     """Manage post rulesets."""
