@@ -50,7 +50,7 @@ from the past {days} day(s), filtered by topic "{topic}":
 
 {news}
 
-Write an opinative LinkedIn post that:
+Write an opinionated LinkedIn post that:
 - Takes a clear, defensible stance on the most significant news item above
 - Shows original analysis and critical thinking beyond the headline
 - Connects the news to broader industry trends

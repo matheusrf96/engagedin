@@ -183,7 +183,7 @@ def draft(topic: str, rules: str | None) -> None:
 def headliner(
     days: int, topic: str, rules: str | None, yes: bool
 ) -> None:
-    """Generate an opinative LinkedIn post based on recent tech news."""
+    """Generate an opinionated LinkedIn post based on recent tech news."""
     engine = Engine(rules_path=rules)
 
     with console.status("[bold green]Fetching latest tech news..."):
