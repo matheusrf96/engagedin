@@ -120,9 +120,11 @@ def test_generate_headliner_draft() -> None:
 
     assert draft.content == "Opinion about AI news"
     assert draft.character_count == len("Opinion about AI news")
-    mock_llm.generate_headliner_post.assert_called_once_with(
-        "AI", mock_news_client.fetch_tech_news.return_value, engine.ruleset, days=3
-    )
+    mock_llm.generate_headliner_post.assert_called_once()
+    call_args = mock_llm.generate_headliner_post.call_args
+    assert call_args[0][0] == "AI"
+    assert call_args[0][2] == engine.ruleset
+    assert call_args[1]["days"] == 3
 
 
 def test_generate_headliner_draft_no_articles() -> None:

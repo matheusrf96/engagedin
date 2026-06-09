@@ -43,8 +43,9 @@ class Engine:
             raise RuntimeError(
                 f"No news articles found for topic '{topic}' in the last {days} day(s)"
             )
+        news_context = NewsClient.format_articles(articles)
         content = self.llm.generate_headliner_post(
-            topic, articles, self.ruleset, days=days
+            topic, news_context, self.ruleset, days=days
         )
         return GeneratedDraft(
             content=content,

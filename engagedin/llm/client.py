@@ -9,8 +9,6 @@ from engagedin.llm.prompts import (
     USER_PROMPT,
     build_system_prompt,
 )
-from engagedin.news.client import NewsClient
-from engagedin.news.models import NewsArticle
 
 
 class LLMClient:
@@ -44,12 +42,11 @@ class LLMClient:
     def generate_headliner_post(
         self,
         topic: str,
-        articles: list[NewsArticle],
+        news_context: str,
         ruleset: PostRuleset,
         days: int = 1,
     ) -> str:
         system_prompt = build_system_prompt(ruleset)
-        news_context = NewsClient.format_articles(articles)
         user_prompt = HEADLINER_USER_PROMPT.format(
             topic=topic, news=news_context, days=days
         )

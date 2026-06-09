@@ -7,7 +7,6 @@ import pytest
 
 from engagedin.core.models import PostRuleset
 from engagedin.llm.client import LLMClient
-from engagedin.news.models import NewsArticle
 
 
 @pytest.fixture
@@ -87,15 +86,7 @@ def test_generate_headliner_post() -> None:
     mock_completion = MagicMock()
     mock_completion.choices[0].message.content = "Opinion post about AI news"
 
-    articles = [
-        NewsArticle(
-            title="AI Breakthrough",
-            source="Hacker News",
-            url="https://example.com",
-            description="New AI model released",
-            published_at="2026-06-09T12:00:00Z",
-        ),
-    ]
+    news_context = "1. AI Breakthrough\n   Source: Hacker News\n   URL: https://example.com"
 
     with (
         patch("engagedin.llm.client.settings") as mock_settings,
@@ -108,9 +99,9 @@ def test_generate_headliner_post() -> None:
         mock_settings.llm_model = "deepseek-chat"
 
         client = LLMClient()
-        ruleset = PostRuleset(tone="opinative")  # type: ignore
+        ruleset = PostRuleset(tone="opinionated")
         result = client.generate_headliner_post(
-            "AI", articles, ruleset, days=1
+            "AI", news_context, ruleset, days=1
         )
 
     assert result == "Opinion post about AI news"
@@ -128,16 +119,6 @@ def test_generate_headliner_post_empty() -> None:
     mock_completion = MagicMock()
     mock_completion.choices[0].message.content = ""
 
-    articles = [
-        NewsArticle(
-            title="Empty response test",
-            source="Test",
-            url="https://example.com",
-            description="",
-            published_at="2026-06-09T12:00:00Z",
-        ),
-    ]
-
     with (
         patch("engagedin.llm.client.settings") as mock_settings,
         patch(
@@ -151,7 +132,7 @@ def test_generate_headliner_post_empty() -> None:
         client = LLMClient()
         ruleset = PostRuleset()
         result = client.generate_headliner_post(
-            "tech", articles, ruleset, days=3
+            "tech", "1. News item", ruleset, days=3
         )
 
     assert result == ""
