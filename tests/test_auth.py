@@ -14,6 +14,24 @@ from engagedin.linkedin.auth import (
 )
 
 
+@pytest.fixture
+def mock_auth_settings():
+    with patch("engagedin.linkedin.auth.settings") as m:
+        yield m
+
+
+@pytest.fixture
+def mock_oauth2client():
+    with patch("engagedin.linkedin.auth.OAuth2Client") as m:
+        yield m
+
+
+@pytest.fixture
+def mock_httpx_get():
+    with patch("httpx.get") as m:
+        yield m
+
+
 class TestOAuthCallbackHandler:
     def setup_method(self) -> None:
         OAuthCallbackHandler.authorization_code = None
@@ -64,10 +82,11 @@ class TestOAuthCallbackHandler:
 
 
 class TestBuildAuthorizationUrl:
-    def test_build_authorization_url(self) -> None:
-        with patch("engagedin.linkedin.auth.settings") as mock_settings:
-            mock_settings.linkedin_client_id = "my_client_id"
-            url = build_authorization_url("my_state_123")
+    def test_build_authorization_url(
+        self, mock_auth_settings: MagicMock
+    ) -> None:
+        mock_auth_settings.linkedin_client_id = "my_client_id"
+        url = build_authorization_url("my_state_123")
         assert "https://www.linkedin.com/oauth/v2/authorization" in url
         assert "client_id=my_client_id" in url
         assert "state=my_state_123" in url
@@ -76,21 +95,19 @@ class TestBuildAuthorizationUrl:
 
 
 class TestExchangeCodeForToken:
-    def test_exchange_code_for_token(self) -> None:
+    def test_exchange_code_for_token(
+        self,
+        mock_auth_settings: MagicMock,
+        mock_oauth2client: MagicMock,
+    ) -> None:
         mock_token = OAuth2Token({"access_token": "tok_123", "expires_in": 3600})
         mock_client = MagicMock()
         mock_client.fetch_token.return_value = mock_token
+        mock_oauth2client.return_value = mock_client
+        mock_auth_settings.linkedin_client_id = "cid"
+        mock_auth_settings.linkedin_client_secret = "csecret"
 
-        with (
-            patch("engagedin.linkedin.auth.settings") as mock_settings,
-            patch(
-                "engagedin.linkedin.auth.OAuth2Client",
-                return_value=mock_client,
-            ),
-        ):
-            mock_settings.linkedin_client_id = "cid"
-            mock_settings.linkedin_client_secret = "csecret"
-            token = exchange_code_for_token("auth_code_xyz")
+        token = exchange_code_for_token("auth_code_xyz")
 
         assert token["access_token"] == "tok_123"
         mock_client.fetch_token.assert_called_once_with(
@@ -103,27 +120,29 @@ class TestExchangeCodeForToken:
 
 
 class TestGetUserUrn:
-    def test_get_user_urn(self) -> None:
+    def test_get_user_urn(self, mock_httpx_get: MagicMock) -> None:
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.json.return_value = {"sub": "user789"}
+        mock_httpx_get.return_value = mock_response
 
-        with patch("httpx.get", return_value=mock_response) as mock_get:
-            urn = get_user_urn("token_abc")
+        urn = get_user_urn("token_abc")
 
         assert urn == "urn:li:person:user789"
-        mock_get.assert_called_once_with(
+        mock_httpx_get.assert_called_once_with(
             "https://api.linkedin.com/v2/userinfo",
             headers={"Authorization": "Bearer token_abc"},
         )
 
-    def test_get_user_urn_raises_on_http_error(self) -> None:
+    def test_get_user_urn_raises_on_http_error(
+        self, mock_httpx_get: MagicMock
+    ) -> None:
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "401 Unauthorized",
             request=MagicMock(),
             response=mock_response,
         )
+        mock_httpx_get.return_value = mock_response
 
-        with patch("httpx.get", return_value=mock_response):
-            with pytest.raises(httpx.HTTPStatusError):
-                get_user_urn("bad_token")
+        with pytest.raises(httpx.HTTPStatusError):
+            get_user_urn("bad_token")
