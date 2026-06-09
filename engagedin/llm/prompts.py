@@ -42,3 +42,19 @@ def build_system_prompt(ruleset: PostRuleset) -> str:
 USER_PROMPT = """Write a LinkedIn post about the following topic:
 
 {topic}"""
+
+HEADLINER_USER_PROMPT = """You are a tech commentator writing an opinion piece for LinkedIn.
+
+Below are the latest tech news headlines and summaries
+from the past {days} day(s), filtered by topic "{topic}":
+
+{news}
+
+Write an opinative LinkedIn post that:
+- Takes a clear, defensible stance on the most significant news item above
+- Shows original analysis and critical thinking beyond the headline
+- Connects the news to broader industry trends
+- Challenges the reader to think differently
+- Uses the tone and follows the rules specified in the system prompt
+
+Focus your post on the single most important or interesting story from the news above."""
