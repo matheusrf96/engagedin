@@ -3,6 +3,8 @@
 # Python
 __pycache__/
 *.py[cod]
+.coverage*
+coverage/
 *.egg-info/
 dist/
 build/
