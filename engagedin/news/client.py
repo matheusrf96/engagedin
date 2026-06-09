@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time as time_module
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -9,6 +10,7 @@ from engagedin.news.models import NewsArticle
 
 HN_BASE = "https://hacker-news.firebaseio.com/v0"
 NEWSAPI_BASE = "https://newsapi.org/v2"
+HN_MAX_WORKERS = 10
 
 
 class NewsError(Exception):
@@ -33,6 +35,40 @@ class NewsClient:
             return self._fetch_from_newsapi(days, topic)
         raise NewsError(f"Unknown news source: {self.source}")
 
+    def _fetch_item(
+        self,
+        client: httpx.Client,
+        sid: int,
+        cutoff: float,
+        topic: str,
+    ) -> NewsArticle | None:
+        try:
+            item_resp = client.get(f"{HN_BASE}/item/{sid}.json")
+            item_resp.raise_for_status()
+            item = item_resp.json()
+        except httpx.HTTPError:
+            return None
+
+        if not item or item.get("type") != "story":
+            return None
+
+        published = item.get("time", 0)
+        if published < cutoff:
+            return None
+
+        title: str = item.get("title", "") or ""
+        topic_lower = topic.lower()
+        if topic != "technology" and topic_lower not in title.lower():
+            return None
+
+        return NewsArticle(
+            title=title,
+            source="Hacker News",
+            url=item.get("url", f"https://news.ycombinator.com/item?id={sid}"),
+            description=item.get("text", "") or "",
+            published_at=datetime.fromtimestamp(published, tz=UTC).isoformat(),
+        )
+
     def _fetch_from_hackernews(
         self, days: int, topic: str
     ) -> list[NewsArticle]:
@@ -44,36 +80,17 @@ class NewsClient:
             story_ids: list[int] = resp.json()[:100]
 
             articles: list[NewsArticle] = []
-            for sid in story_ids:
-                item_resp = client.get(f"{HN_BASE}/item/{sid}.json")
-                item_resp.raise_for_status()
-                item = item_resp.json()
-                if not item or item.get("type") != "story":
-                    continue
-
-                published = item.get("time", 0)
-                if published < cutoff:
-                    continue
-
-                title: str = item.get("title", "") or ""
-                topic_lower = topic.lower()
-                if topic != "technology" and topic_lower not in title.lower():
-                    continue
-
-                articles.append(
-                    NewsArticle(
-                        title=title,
-                        source="Hacker News",
-                        url=item.get("url", f"https://news.ycombinator.com/item?id={sid}"),
-                        description=item.get("text", "") or "",
-                        published_at=datetime.fromtimestamp(
-                            published, tz=UTC
-                        ).isoformat(),
-                    )
-                )
-
-                if len(articles) >= 20:
-                    break
+            with ThreadPoolExecutor(max_workers=HN_MAX_WORKERS) as pool:
+                futures = {
+                    pool.submit(self._fetch_item, client, sid, cutoff, topic): sid
+                    for sid in story_ids
+                }
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result is not None:
+                        articles.append(result)
+                        if len(articles) >= 20:
+                            break
 
         return articles
 

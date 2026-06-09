@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from engagedin.news.client import NewsClient, NewsError
@@ -69,8 +70,8 @@ def test_hackernews_success() -> None:
         articles = client.fetch_tech_news(days=1, topic="technology")
 
     assert len(articles) == 2
-    assert articles[0].title == "AI Breakthrough in 2026"
-    assert articles[1].title == "New Programming Language Released"
+    titles = {a.title for a in articles}
+    assert titles == {"AI Breakthrough in 2026", "New Programming Language Released"}
 
 
 def test_hackernews_filters_by_topic() -> None:
@@ -102,6 +103,39 @@ def test_hackernews_filters_by_topic() -> None:
 
     assert len(articles) == 1
     assert articles[0].title == "AI Breakthrough in 2026"
+
+
+def test_hackernews_skips_http_errors() -> None:
+    now = int(datetime.now(UTC).timestamp())
+
+    def get_side_effect(url: str, **kwargs):
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        if url.endswith("/topstories.json"):
+            resp.json.return_value = [1, 2]
+        elif "/item/1.json" in url:
+            resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+                "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
+            )
+        elif "/item/2.json" in url:
+            resp.json.return_value = {
+                "id": 2,
+                "type": "story",
+                "title": "Working Story",
+                "url": "https://example.com/2",
+                "time": now - 1000,
+            }
+        return resp
+
+    with patch("httpx.Client") as mock_client_class:
+        mock_client = mock_client_class.return_value.__enter__.return_value
+        mock_client.get.side_effect = get_side_effect
+
+        client = NewsClient(source="hackernews")
+        articles = client.fetch_tech_news(days=1, topic="technology")
+
+    assert len(articles) == 1
+    assert articles[0].title == "Working Story"
 
 
 def test_hackernews_skips_non_story() -> None:
