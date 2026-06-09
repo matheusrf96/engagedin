@@ -11,6 +11,7 @@ class Tone(StrEnum):
     provocative = "provocative"
     educational = "educational"
     storytelling = "storytelling"
+    opinative = "opinative"
 
 
 class HashtagStyle(StrEnum):
