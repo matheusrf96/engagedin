@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,24 +10,24 @@ from engagedin.llm.client import LLMClient
 
 
 @pytest.fixture
-def mock_llm_settings():
+def mock_llm_settings() -> Generator[MagicMock, None, None]:
     with patch("engagedin.llm.client.settings") as m:
         yield m
 
 
 @pytest.fixture
-def mock_completion():
+def mock_completion_fn() -> Generator[MagicMock, None, None]:
     with patch("engagedin.llm.client.completion") as m:
         yield m
 
 
 def test_generate_post(
     mock_llm_settings: MagicMock,
-    mock_completion: MagicMock,
+    mock_completion_fn: MagicMock,
 ) -> None:
-    mock_completion_obj = MagicMock()
-    mock_completion_obj.choices[0].message.content = "Generated post content"
-    mock_completion.return_value = mock_completion_obj
+    mock_completion = MagicMock()
+    mock_completion.choices[0].message.content = "Generated post content"
+    mock_completion_fn.return_value = mock_completion
     mock_llm_settings.llm_api_key = "test-key"
     mock_llm_settings.llm_model = "deepseek-chat"
 
@@ -35,8 +36,8 @@ def test_generate_post(
     result = client.generate_post("AI in 2025", ruleset)
 
     assert result == "Generated post content"
-    mock_completion.assert_called_once()
-    call_args = mock_completion.call_args[1]
+    mock_completion_fn.assert_called_once()
+    call_args = mock_completion_fn.call_args[1]
     assert call_args["model"] == "deepseek-chat"
     messages = call_args["messages"]
     assert len(messages) == 2
@@ -47,11 +48,11 @@ def test_generate_post(
 
 def test_generate_post_empty_response(
     mock_llm_settings: MagicMock,
-    mock_completion: MagicMock,
+    mock_completion_fn: MagicMock,
 ) -> None:
-    mock_completion_obj = MagicMock()
-    mock_completion_obj.choices[0].message.content = ""
-    mock_completion.return_value = mock_completion_obj
+    mock_completion = MagicMock()
+    mock_completion.choices[0].message.content = ""
+    mock_completion_fn.return_value = mock_completion
     mock_llm_settings.llm_api_key = "test-key"
     mock_llm_settings.llm_model = "deepseek-chat"
 
@@ -63,11 +64,11 @@ def test_generate_post_empty_response(
 
 
 def test_generate_post_custom_provider(
-    mock_completion: MagicMock,
+    mock_completion_fn: MagicMock,
 ) -> None:
-    mock_completion_obj = MagicMock()
-    mock_completion_obj.choices[0].message.content = "Response"
-    mock_completion.return_value = mock_completion_obj
+    mock_completion = MagicMock()
+    mock_completion.choices[0].message.content = "Response"
+    mock_completion_fn.return_value = mock_completion
 
     client = LLMClient(
         provider="openai",
@@ -78,4 +79,4 @@ def test_generate_post_custom_provider(
     result = client.generate_post("custom provider", ruleset)
 
     assert result == "Response"
-    assert mock_completion.call_args[1]["model"] == "gpt-4o"
+    assert mock_completion_fn.call_args[1]["model"] == "gpt-4o"
