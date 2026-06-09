@@ -9,6 +9,7 @@ from engagedin.llm.prompts import (
     USER_PROMPT,
     build_system_prompt,
 )
+from engagedin.news.client import NewsClient
 from engagedin.news.models import NewsArticle
 
 
@@ -47,8 +48,6 @@ class LLMClient:
         ruleset: PostRuleset,
         days: int = 1,
     ) -> str:
-        from engagedin.news.client import NewsClient
-
         system_prompt = build_system_prompt(ruleset)
         news_context = NewsClient.format_articles(articles)
         user_prompt = HEADLINER_USER_PROMPT.format(

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import http.server
+import secrets
+import threading
+import webbrowser
+
 import click
 import yaml
 from rich.console import Console
@@ -9,6 +14,7 @@ from rich.prompt import Confirm
 from engagedin.core.config import settings
 from engagedin.core.engine import Engine
 from engagedin.linkedin.auth import (
+    OAuthCallbackHandler,
     build_authorization_url,
     exchange_code_for_token,
     get_user_urn,
@@ -38,18 +44,12 @@ def auth_login() -> None:
         )
         raise SystemExit(1)
 
-    import secrets
-    import threading
-
-    from engagedin.linkedin.auth import OAuthCallbackHandler
-
     state = secrets.token_urlsafe(32)
     auth_url = build_authorization_url(state)
 
     OAuthCallbackHandler.authorization_code = None
     OAuthCallbackHandler.expected_state = state
 
-    import http.server
     server = http.server.HTTPServer(("localhost", 18473), OAuthCallbackHandler)
     thread = threading.Thread(target=server.serve_forever)
     thread.daemon = True
@@ -59,7 +59,6 @@ def auth_login() -> None:
         "[bold]Opening browser for LinkedIn authorization...[/bold]"
     )
     console.print(f"If the browser doesn't open, visit:\n{auth_url}")
-    import webbrowser
     webbrowser.open(auth_url)
 
     server.handle_request()
