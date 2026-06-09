@@ -31,10 +31,10 @@ You are the test agent for the **engagedin** project — an AI-powered LinkedIn 
 
 ## Mocking patterns
 
-- **HTTP**: `httpx` is mocked via `respx` or `httpx.MockTransport` / `pytest-httpx`.
-- **LLM calls**: `litellm` is patched at `litellm.completion` or the wrapper in `engagedin.llm.client`.
+- **HTTP**: `pytest.fixture` wrapping `patch("httpx.get")` / `patch("httpx.post")`.
+- **LLM calls**: `pytest.fixture` wrapping `patch("engagedin.llm.client.completion")`.
 - **File I/O / env**: Use `monkeypatch.setenv` and `monkeypatch.setattr`; avoid touching real filesystem in unit tests.
-- **OAuth / authlib**: Mock `authlib.integrations.httpx_client.OAuth2Client` or the auth module directly.
+- **OAuth / authlib**: `pytest.fixture` wrapping `patch("engagedin.linkedin.auth.OAuth2Client")` / `patch("httpx.get")`.
 
 ## Coverage
 
