@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from engagedin.core.engine import Engine
 from engagedin.core.models import GeneratedDraft, PostRuleset
 from engagedin.linkedin.client import LinkedInClient
 from engagedin.llm.client import LLMClient
+from engagedin.news.client import NewsClient
+from engagedin.news.models import NewsArticle
 
 
 def test_generate_draft() -> None:
@@ -79,3 +83,53 @@ def test_generate_and_publish() -> None:
 
     assert draft.content == "Full post content with hashtags"
     assert post_urn == "urn:li:share:67890"
+
+
+def test_generate_headliner_draft() -> None:
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_llm.generate_headliner_post.return_value = "Opinion about AI news"
+    mock_linkedin = MagicMock(spec=LinkedInClient)
+    mock_news_client = MagicMock(spec=NewsClient)
+    mock_news_client.fetch_tech_news.return_value = [
+        NewsArticle(
+            title="AI News",
+            source="Hacker News",
+            url="https://example.com",
+            description="AI description",
+            published_at="2026-06-09T12:00:00Z",
+        ),
+    ]
+
+    with patch(
+        "engagedin.core.engine.NewsClient", return_value=mock_news_client
+    ):
+        engine = Engine(
+            ruleset=PostRuleset(),
+            llm_client=mock_llm,
+            linkedin_client=mock_linkedin,
+        )
+        draft = engine.generate_headliner_draft(days=3, topic="AI")
+
+    assert draft.content == "Opinion about AI news"
+    assert draft.character_count == len("Opinion about AI news")
+    mock_llm.generate_headliner_post.assert_called_once_with(
+        "AI", mock_news_client.fetch_tech_news.return_value, engine.ruleset, days=3
+    )
+
+
+def test_generate_headliner_draft_no_articles() -> None:
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_linkedin = MagicMock(spec=LinkedInClient)
+    mock_news_client = MagicMock(spec=NewsClient)
+    mock_news_client.fetch_tech_news.return_value = []
+
+    with patch(
+        "engagedin.core.engine.NewsClient", return_value=mock_news_client
+    ):
+        engine = Engine(
+            ruleset=PostRuleset(),
+            llm_client=mock_llm,
+            linkedin_client=mock_linkedin,
+        )
+        with pytest.raises(RuntimeError, match="No news articles found"):
+            engine.generate_headliner_draft(days=1, topic="obscure")
