@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,49 +17,49 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def mock_linkedin_client_cls():
+def mock_linkedin_client_cls() -> Generator[MagicMock, None, None]:
     with patch("engagedin.cli.main.LinkedInClient") as m:
         yield m
 
 
 @pytest.fixture
-def mock_engine_cls():
+def mock_engine_cls() -> Generator[MagicMock, None, None]:
     with patch("engagedin.cli.main.Engine") as m:
         yield m
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> Generator[MagicMock, None, None]:
     with patch("engagedin.cli.main.settings") as m:
         yield m
 
 
 @pytest.fixture
-def mock_build_url():
+def mock_build_url() -> Generator[MagicMock, None, None]:
     with patch("engagedin.cli.main.build_authorization_url") as m:
         yield m
 
 
 @pytest.fixture
-def mock_webbrowser_open():
+def mock_webbrowser_open() -> Generator[MagicMock, None, None]:
     with patch("webbrowser.open") as m:
         yield m
 
 
 @pytest.fixture
-def mock_httpserver():
+def mock_httpserver() -> Generator[MagicMock, None, None]:
     with patch("http.server.HTTPServer") as m:
         yield m
 
 
 @pytest.fixture
-def mock_exchange_token():
+def mock_exchange_token() -> Generator[MagicMock, None, None]:
     with patch("engagedin.cli.main.exchange_code_for_token") as m:
         yield m
 
 
 @pytest.fixture
-def mock_get_urn():
+def mock_get_urn() -> Generator[MagicMock, None, None]:
     with patch("engagedin.cli.main.get_user_urn") as m:
         yield m
 
@@ -213,11 +214,11 @@ def test_config_show_masks_secrets(runner: CliRunner, monkeypatch) -> None:
     assert "supersecret123" not in result.output
 
 
+@pytest.mark.usefixtures("mock_webbrowser_open")
 def test_auth_login_success(
     runner: CliRunner,
     mock_settings: MagicMock,
     mock_build_url: MagicMock,
-    mock_webbrowser_open: MagicMock,
     mock_httpserver: MagicMock,
     mock_exchange_token: MagicMock,
     mock_get_urn: MagicMock,
@@ -247,11 +248,11 @@ def test_auth_login_success(
     assert "urn:li:person:user999" in result.output
 
 
+@pytest.mark.usefixtures("mock_webbrowser_open")
 def test_auth_login_no_code(
     runner: CliRunner,
     mock_settings: MagicMock,
     mock_build_url: MagicMock,
-    mock_webbrowser_open: MagicMock,
     mock_httpserver: MagicMock,
 ) -> None:
     mock_settings.linkedin_client_id = "test_id"
@@ -267,11 +268,11 @@ def test_auth_login_no_code(
     assert "Authorization failed" in result.output
 
 
+@pytest.mark.usefixtures("mock_webbrowser_open")
 def test_auth_login_no_access_token(
     runner: CliRunner,
     mock_settings: MagicMock,
     mock_build_url: MagicMock,
-    mock_webbrowser_open: MagicMock,
     mock_httpserver: MagicMock,
     mock_exchange_token: MagicMock,
 ) -> None:
