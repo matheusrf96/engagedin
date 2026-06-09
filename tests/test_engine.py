@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +11,12 @@ from engagedin.linkedin.client import LinkedInClient
 from engagedin.llm.client import LLMClient
 from engagedin.news.client import NewsClient
 from engagedin.news.models import NewsArticle
+
+
+@pytest.fixture
+def mock_engine_settings() -> Generator[MagicMock, None, None]:
+    with patch("engagedin.core.engine.settings") as m:
+        yield m
 
 
 def test_generate_draft() -> None:
@@ -28,20 +35,21 @@ def test_generate_draft() -> None:
     assert draft.character_count == len("Test post content")
 
 
-def test_publish_draft_with_urn() -> None:
+def test_publish_draft_with_urn(
+    mock_engine_settings: MagicMock,
+) -> None:
     mock_linkedin = MagicMock(spec=LinkedInClient)
     mock_linkedin.create_post.return_value = "urn:li:share:12345"
     mock_llm = MagicMock(spec=LLMClient)
     draft = GeneratedDraft(content="Test content")
+    mock_engine_settings.linkedin_user_urn = "urn:li:person:abc123"
 
-    with patch("engagedin.core.engine.settings") as mock_settings:
-        mock_settings.linkedin_user_urn = "urn:li:person:abc123"
-        engine = Engine(
-            ruleset=PostRuleset(),
-            llm_client=mock_llm,
-            linkedin_client=mock_linkedin,
-        )
-        result = engine.publish_draft(draft)
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=mock_llm,
+        linkedin_client=mock_linkedin,
+    )
+    result = engine.publish_draft(draft)
 
     assert result == "urn:li:share:12345"
     post = mock_linkedin.create_post.call_args[0][0]
