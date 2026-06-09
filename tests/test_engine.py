@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,7 +12,7 @@ from engagedin.llm.client import LLMClient
 
 
 @pytest.fixture
-def mock_engine_settings():
+def mock_engine_settings() -> Generator[MagicMock, None, None]:
     with patch("engagedin.core.engine.settings") as m:
         yield m
 
