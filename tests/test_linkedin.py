@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -10,19 +11,19 @@ from engagedin.linkedin.client import LinkedInClient, LinkedInError
 
 
 @pytest.fixture
-def mock_linkedin_settings():
+def mock_linkedin_settings() -> Generator[MagicMock, None, None]:
     with patch("engagedin.linkedin.client.settings") as m:
         yield m
 
 
 @pytest.fixture
-def mock_httpx_post():
+def mock_httpx_post() -> Generator[MagicMock, None, None]:
     with patch("httpx.post") as m:
         yield m
 
 
 @pytest.fixture
-def mock_httpx_get():
+def mock_httpx_get() -> Generator[MagicMock, None, None]:
     with patch("httpx.get") as m:
         yield m
 
