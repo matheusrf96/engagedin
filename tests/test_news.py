@@ -295,6 +295,15 @@ def test_unknown_source() -> None:
         client.fetch_tech_news(days=1)
 
 
+def test_network_error_wrapped() -> None:
+    with patch("httpx.Client") as mock_client_class:
+        mock_client = mock_client_class.return_value.__enter__.return_value
+        mock_client.get.side_effect = httpx.ConnectError("connection refused")
+        client = NewsClient(source="hackernews")
+        with pytest.raises(NewsError, match="Failed to fetch news"):
+            client.fetch_tech_news(days=1, topic="technology")
+
+
 def test_format_articles() -> None:
     articles = [
         NewsArticle(

@@ -30,10 +30,15 @@ class NewsClient:
     def fetch_tech_news(
         self, days: int = 1, topic: str = "technology"
     ) -> list[NewsArticle]:
-        if self.source == "hackernews":
-            return self._fetch_from_hackernews(days, topic)
-        if self.source == "newsapi":
-            return self._fetch_from_newsapi(days, topic)
+        try:
+            if self.source == "hackernews":
+                return self._fetch_from_hackernews(days, topic)
+            if self.source == "newsapi":
+                return self._fetch_from_newsapi(days, topic)
+        except httpx.HTTPError as e:
+            raise NewsError(
+                f"Failed to fetch news from '{self.source}': {e}"
+            ) from e
         raise NewsError(f"Unknown news source: {self.source}")
 
     def _fetch_item(

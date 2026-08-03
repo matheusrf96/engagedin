@@ -10,6 +10,12 @@ from engagedin.llm.prompts import (
     build_system_prompt,
 )
 
+LOCAL_PROVIDERS = frozenset({"ollama", "lm_studio", "vllm", "local"})
+
+
+class LLMConfigError(Exception):
+    """Raised when the LLM configuration is missing required values."""
+
 
 class LLMClient:
     def __init__(
@@ -22,7 +28,16 @@ class LLMClient:
         self.model = model or settings.llm_model
         self.api_key = api_key or settings.llm_api_key
 
+    def _ensure_api_key(self) -> None:
+        if not self.api_key and self.provider not in LOCAL_PROVIDERS:
+            raise LLMConfigError(
+                f"LLM_API_KEY is not set for provider '{self.provider}'. "
+                "Set LLM_API_KEY in your .env file, or use a local provider "
+                "(ollama, lm_studio, vllm) that needs no key."
+            )
+
     def generate_post(self, topic: str, ruleset: PostRuleset) -> str:
+        self._ensure_api_key()
         system_prompt = build_system_prompt(ruleset)
         user_prompt = USER_PROMPT.format(topic=topic)
 
@@ -46,6 +61,7 @@ class LLMClient:
         ruleset: PostRuleset,
         days: int = 1,
     ) -> str:
+        self._ensure_api_key()
         system_prompt = build_system_prompt(ruleset)
         user_prompt = HEADLINER_USER_PROMPT.format(
             topic=topic, news=news_context, days=days

@@ -140,6 +140,24 @@ def test_draft_with_rules(runner: CliRunner, mock_engine_cls: MagicMock) -> None
     assert result.exit_code == 0
     assert "Custom rules draft" in result.output
 
+def test_draft_generation_error(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
+    from engagedin.llm.client import LLMConfigError
+
+    mock_engine = MagicMock()
+    mock_engine.generate_draft.side_effect = LLMConfigError("LLM_API_KEY is not set")
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["draft", "some topic"])
+    assert result.exit_code == 1
+    assert "Could not generate the post" in result.output
+    assert "LLM_API_KEY is not set" in result.output
+
+
+def test_draft_missing_llm_key(runner: CliRunner) -> None:
+    result = runner.invoke(cli, ["draft", "some topic"])
+    assert result.exit_code == 1
+    assert "LLM_API_KEY is not set" in result.output
 
 def test_post_yes_flag(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
     mock_engine = MagicMock()
@@ -189,6 +207,33 @@ def test_post_long_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> Non
     result = runner.invoke(cli, ["post", "long topic", "--yes"])
     assert "exceeds 3000" in result.output
 
+def test_post_generation_error(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
+    from engagedin.llm.client import LLMConfigError
+
+    mock_engine = MagicMock()
+    mock_engine.generate_draft.side_effect = LLMConfigError("LLM_API_KEY is not set")
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["post", "my topic", "--yes"])
+    assert result.exit_code == 1
+    assert "Could not generate the post" in result.output
+
+
+def test_post_publish_error(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
+    mock_engine = MagicMock()
+    mock_engine.generate_draft.return_value = GeneratedDraft(
+        content="Post content",
+        character_count=12,
+    )
+    mock_engine.publish_draft.side_effect = LinkedInError("publish boom")
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["post", "my topic", "--yes"])
+    assert result.exit_code == 1
+    assert "Could not publish the post" in result.output
+    assert "publish boom" in result.output
 
 def test_rules_show(runner: CliRunner) -> None:
     result = runner.invoke(cli, ["rules", "show"])
@@ -367,3 +412,29 @@ def test_headliner_long_warning(runner: CliRunner) -> None:
         result = runner.invoke(cli, ["headliner", "--yes"])
 
     assert "exceeds 3000" in result.output
+def test_headliner_generation_error(runner: CliRunner) -> None:
+    from engagedin.news.client import NewsError
+
+    mock_engine = MagicMock()
+    mock_engine.generate_headliner_draft.side_effect = NewsError("No news found")
+    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
+        result = runner.invoke(cli, ["headliner", "--yes"])
+
+    assert result.exit_code == 1
+    assert "Could not generate the headliner" in result.output
+    assert "No news found" in result.output
+
+
+def test_headliner_publish_error(runner: CliRunner) -> None:
+    mock_engine = MagicMock()
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="Opinion piece",
+        character_count=13,
+    )
+    mock_engine.publish_draft.side_effect = LinkedInError("publish boom")
+    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
+        result = runner.invoke(cli, ["headliner", "--yes"])
+
+    assert result.exit_code == 1
+    assert "Could not publish the post" in result.output
+    assert "publish boom" in result.output

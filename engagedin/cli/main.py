@@ -4,6 +4,7 @@ import http.server
 import secrets
 import threading
 import webbrowser
+from typing import NoReturn
 
 import click
 import yaml
@@ -19,10 +20,19 @@ from engagedin.linkedin.auth import (
     exchange_code_for_token,
     get_user_urn,
 )
-from engagedin.linkedin.client import LinkedInClient
+from engagedin.linkedin.client import LinkedInClient, LinkedInError
+from engagedin.llm.client import LLMConfigError
+from engagedin.news.client import NewsError
 from engagedin.rules.loader import load_ruleset
 
 console = Console()
+
+KNOWN_ERRORS = (LLMConfigError, NewsError, LinkedInError, RuntimeError)
+
+
+def _fail(message: str) -> NoReturn:
+    console.print(f"[red]{message}[/red]")
+    raise SystemExit(1)
 
 
 @click.group()
@@ -111,8 +121,11 @@ def post(topic: str, rules: str | None, yes: bool) -> None:
     """Generate and publish a LinkedIn post about TOPIC."""
     engine = Engine(rules_path=rules)
 
-    with console.status("[bold green]Generating post draft..."):
-        draft = engine.generate_draft(topic)
+    try:
+        with console.status("[bold green]Generating post draft..."):
+            draft = engine.generate_draft(topic)
+    except KNOWN_ERRORS as e:
+        _fail(f"Could not generate the post: {e}")
 
     console.print(
         Panel(
@@ -137,8 +150,11 @@ def post(topic: str, rules: str | None, yes: bool) -> None:
             console.print("[yellow]Cancelled[/yellow]")
             raise SystemExit(0)
 
-    with console.status("[bold green]Publishing to LinkedIn..."):
-        post_urn = engine.publish_draft(draft)
+    try:
+        with console.status("[bold green]Publishing to LinkedIn..."):
+            post_urn = engine.publish_draft(draft)
+    except KNOWN_ERRORS as e:
+        _fail(f"Could not publish the post: {e}")
 
     console.print(f"[green]Published! Post URN: {post_urn}[/green]")
 
@@ -150,8 +166,11 @@ def draft(topic: str, rules: str | None) -> None:
     """Generate a draft post without publishing."""
     engine = Engine(rules_path=rules)
 
-    with console.status("[bold green]Generating post draft..."):
-        draft = engine.generate_draft(topic)
+    try:
+        with console.status("[bold green]Generating post draft..."):
+            draft = engine.generate_draft(topic)
+    except KNOWN_ERRORS as e:
+        _fail(f"Could not generate the post: {e}")
 
     console.print(
         Panel(
@@ -186,8 +205,11 @@ def headliner(
     """Generate an opinionated LinkedIn post based on recent tech news."""
     engine = Engine(rules_path=rules)
 
-    with console.status("[bold green]Fetching latest tech news..."):
-        draft = engine.generate_headliner_draft(days=days, topic=topic)
+    try:
+        with console.status("[bold green]Fetching latest tech news..."):
+            draft = engine.generate_headliner_draft(days=days, topic=topic)
+    except KNOWN_ERRORS as e:
+        _fail(f"Could not generate the headliner: {e}")
 
     console.print(
         Panel(
@@ -212,8 +234,11 @@ def headliner(
             console.print("[yellow]Cancelled[/yellow]")
             raise SystemExit(0)
 
-    with console.status("[bold green]Publishing to LinkedIn..."):
-        post_urn = engine.publish_draft(draft)
+    try:
+        with console.status("[bold green]Publishing to LinkedIn..."):
+            post_urn = engine.publish_draft(draft)
+    except KNOWN_ERRORS as e:
+        _fail(f"Could not publish the post: {e}")
 
     console.print(f"[green]Published! Post URN: {post_urn}[/green]")
 

@@ -110,11 +110,31 @@ def test_get_user_info(
     mock_httpx_get.assert_called_once()
 
 
+def test_get_user_info_http_error_wrapped(
+    mock_linkedin_settings: MagicMock,
+    mock_httpx_get: MagicMock,
+) -> None:
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 401
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "401 Unauthorized",
+        request=MagicMock(),
+        response=mock_response,
+    )
+    mock_httpx_get.return_value = mock_response
+    mock_linkedin_settings.linkedin_access_token = "test-token"
+
+    client = LinkedInClient()
+    with pytest.raises(LinkedInError, match="LinkedIn API error"):
+        client.get_user_info()
+
+
 def test_get_user_info_http_error(
     mock_linkedin_settings: MagicMock,
     mock_httpx_get: MagicMock,
 ) -> None:
     mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 403
     mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
         "403 Forbidden",
         request=MagicMock(),
@@ -125,5 +145,5 @@ def test_get_user_info_http_error(
 
     client = LinkedInClient()
 
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(LinkedInError, match="LinkedIn API error"):
         client.get_user_info()

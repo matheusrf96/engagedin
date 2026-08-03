@@ -63,5 +63,8 @@ class LinkedInClient:
             f"{API_BASE}/v2/userinfo",
             headers=self._headers(),
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            raise LinkedInError(f"LinkedIn API error (HTTP {response.status_code}): {e}") from e
         return response.json()
