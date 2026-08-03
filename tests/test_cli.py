@@ -326,14 +326,16 @@ def test_auth_login_no_access_token(
     assert "Failed to obtain access token" in result.output
 
 
-def test_headliner_defaults(runner: CliRunner) -> None:
+def test_headliner_defaults(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Opinative post about tech news",
         character_count=30,
     )
-    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
-        result = runner.invoke(cli, ["headliner", "--yes"])
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["headliner", "--yes"])
 
     assert result.exit_code == 0
     assert "Opinative post about tech news" in result.output
@@ -343,15 +345,17 @@ def test_headliner_defaults(runner: CliRunner) -> None:
     )
 
 
-def test_headliner_with_options(runner: CliRunner) -> None:
+def test_headliner_with_options(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="AI opinion piece",
         character_count=16,
     )
-    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
-        result = runner.invoke(
-            cli, ["headliner", "--days", "3", "--topic", "AI", "--yes"]
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(
+        cli, ["headliner", "--days", "3", "--topic", "AI", "--yes"]
     )
 
     assert result.exit_code == 0
@@ -361,76 +365,88 @@ def test_headliner_with_options(runner: CliRunner) -> None:
     )
 
 
-def test_headliner_cancelled(runner: CliRunner) -> None:
+def test_headliner_cancelled(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Draft that gets cancelled",
         character_count=25,
     )
-    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
-        result = runner.invoke(cli, ["headliner", "-d", "7"], input="n\n")
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["headliner", "-d", "7"], input="n\n")
 
     assert result.exit_code == 0
     assert "Cancelled" in result.output
 
 
-def test_headliner_short_warning(runner: CliRunner) -> None:
+def test_headliner_short_warning(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Hi",
         character_count=2,
     )
-    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
-        result = runner.invoke(cli, ["headliner", "--yes"])
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["headliner", "--yes"])
 
     assert "very short" in result.output
 
 
-def test_headliner_long_warning(runner: CliRunner) -> None:
+def test_headliner_long_warning(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="A" * 3001,
         character_count=3001,
     )
-    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
-        result = runner.invoke(cli, ["headliner", "--yes"])
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["headliner", "--yes"])
 
     assert "exceeds 3000" in result.output
 
 
-def test_headliner_generation_error(runner: CliRunner) -> None:
+def test_headliner_generation_error(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.side_effect = NewsError("No news found")
-    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
-        result = runner.invoke(cli, ["headliner", "--yes"])
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["headliner", "--yes"])
 
     assert result.exit_code == 1
     assert "Could not generate the headliner" in result.output
     assert "No news found" in result.output
 
 
-def test_headliner_schedule_advisory(runner: CliRunner) -> None:
+def test_headliner_schedule_advisory(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
     mock_engine = _mock_engine(advisory="Not in a best posting window (7-9).")
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Opinion piece",
         character_count=13,
     )
     mock_engine.publish_draft.return_value = "urn:li:share:12345"
-    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
-        result = runner.invoke(cli, ["headliner", "--yes"])
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["headliner", "--yes"])
 
     assert "Not in a best posting window (7-9)." in result.output
 
 
-def test_headliner_publish_error(runner: CliRunner) -> None:
+def test_headliner_publish_error(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Opinion piece",
         character_count=13,
     )
     mock_engine.publish_draft.side_effect = LinkedInError("publish boom")
-    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
-        result = runner.invoke(cli, ["headliner", "--yes"])
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["headliner", "--yes"])
 
     assert result.exit_code == 1
     assert "Could not publish the post" in result.output
