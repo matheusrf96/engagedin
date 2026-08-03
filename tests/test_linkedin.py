@@ -97,6 +97,38 @@ def test_create_post_retries_on_transport_error(
     assert mock_httpx_post.call_count == 2
 
 
+def test_create_post_does_not_retry_mid_response_errors(
+    mock_linkedin_settings: MagicMock,
+    mock_httpx_post: MagicMock,
+) -> None:
+    mock_httpx_post.side_effect = httpx.ReadTimeout("no response received")
+    mock_linkedin_settings.linkedin_access_token = "test-token"
+
+    client = LinkedInClient()
+    post = Post(author="urn:li:person:abc123", commentary="Test post content")
+
+    with pytest.raises(LinkedInError, match="LinkedIn API error"):
+        client.create_post(post)
+
+    mock_httpx_post.assert_called_once()
+
+
+def test_create_post_transport_error_wrapped(
+    mock_linkedin_settings: MagicMock,
+    mock_httpx_post: MagicMock,
+) -> None:
+    mock_httpx_post.side_effect = httpx.ConnectError("connection refused")
+    mock_linkedin_settings.linkedin_access_token = "test-token"
+
+    client = LinkedInClient()
+    post = Post(author="urn:li:person:abc123", commentary="Test post content")
+
+    with pytest.raises(LinkedInError, match="LinkedIn API error"):
+        client.create_post(post)
+
+    assert mock_httpx_post.call_count == 3
+
+
 def test_create_post_missing_urn(
     mock_linkedin_settings: MagicMock,
     mock_httpx_post: MagicMock,
@@ -168,3 +200,18 @@ def test_get_user_info_http_error(
 
     with pytest.raises(LinkedInError, match="LinkedIn API error"):
         client.get_user_info()
+
+
+def test_get_user_info_transport_error_wrapped(
+    mock_linkedin_settings: MagicMock,
+    mock_httpx_get: MagicMock,
+) -> None:
+    mock_httpx_get.side_effect = httpx.ConnectError("connection refused")
+    mock_linkedin_settings.linkedin_access_token = "test-token"
+
+    client = LinkedInClient()
+
+    with pytest.raises(LinkedInError, match="LinkedIn API error"):
+        client.get_user_info()
+
+    assert mock_httpx_get.call_count == 3
