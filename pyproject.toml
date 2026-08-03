@@ -1,11 +1,32 @@
 [project]
 name = "engagedin"
-version = "0.2.0"
+version = "0.3.0"
 description = "AI-powered LinkedIn content generator"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Matheus" }]
 requires-python = ">=3.12"
+keywords = [
+    "linkedin",
+    "content",
+    "generator",
+    "llm",
+    "ai",
+    "cli",
+    "marketing",
+    "social-media",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Communications",
+    "Topic :: Internet",
+]
 
 dependencies = [
     "click>=8.1",
@@ -16,11 +37,16 @@ dependencies = [
     "litellm>=1.0",
     "pyyaml>=6.0",
     "authlib>=1.3",
-    "keyring>=25.0",
 ]
 
 [project.scripts]
 engagedin = "engagedin.cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/matheusrf96/engagedin"
+Repository = "https://github.com/matheusrf96/engagedin"
+Issues = "https://github.com/matheusrf96/engagedin/issues"
+Changelog = "https://github.com/matheusrf96/engagedin/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=75.0"]
@@ -28,6 +54,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["engagedin*"]
+
+[tool.setuptools.package-data]
+engagedin = ["rules/*.yaml"]
 
 [tool.ruff]
 line-length = 100
