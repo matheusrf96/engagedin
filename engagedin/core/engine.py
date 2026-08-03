@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from engagedin.core.config import settings
 from engagedin.core.models import GeneratedDraft, Post, PostRuleset
+from engagedin.core.schedule import is_best_time
 from engagedin.linkedin.client import LinkedInClient
 from engagedin.llm.client import LLMClient
 from engagedin.news.client import NewsClient
@@ -69,6 +71,17 @@ class Engine:
         )
         post_urn = linkedin.create_post(post)
         return post_urn
+
+    def schedule_advisory(self, now: datetime | None = None) -> str | None:
+        """Return an advisory message when now is outside the best posting hours."""
+        now = now or datetime.now()
+        if is_best_time(now, self.ruleset.schedule.best_times):
+            return None
+        best = ", ".join(self.ruleset.schedule.best_times)
+        return (
+            f"Not in a best posting window ({best}). "
+            "Consider scheduling this post for later."
+        )
 
     def generate_and_publish(self, topic: str) -> tuple[GeneratedDraft, str]:
         draft = self.generate_draft(topic)

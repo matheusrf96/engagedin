@@ -64,6 +64,12 @@ def mock_get_urn() -> Generator[MagicMock, None, None]:
         yield m
 
 
+def _mock_engine(advisory: str | None = None) -> MagicMock:
+    mock = MagicMock()
+    mock.schedule_advisory.return_value = advisory
+    return mock
+
+
 def test_cli_help(runner: CliRunner) -> None:
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
@@ -115,7 +121,7 @@ def test_auth_status_authenticated(
 
 
 def test_draft(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Test draft content",
         character_count=18,
@@ -128,7 +134,7 @@ def test_draft(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
 
 
 def test_draft_with_rules(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Custom rules draft",
         character_count=19,
@@ -140,12 +146,13 @@ def test_draft_with_rules(runner: CliRunner, mock_engine_cls: MagicMock) -> None
     assert result.exit_code == 0
     assert "Custom rules draft" in result.output
 
+
 def test_draft_generation_error(
     runner: CliRunner, mock_engine_cls: MagicMock
 ) -> None:
     from engagedin.llm.client import LLMConfigError
 
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.side_effect = LLMConfigError("LLM_API_KEY is not set")
     mock_engine_cls.return_value = mock_engine
     result = runner.invoke(cli, ["draft", "some topic"])
@@ -159,8 +166,9 @@ def test_draft_missing_llm_key(runner: CliRunner) -> None:
     assert result.exit_code == 1
     assert "LLM_API_KEY is not set" in result.output
 
+
 def test_post_yes_flag(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Post content",
         character_count=12,
@@ -175,7 +183,7 @@ def test_post_yes_flag(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
 
 
 def test_post_cancelled(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Post content",
         character_count=12,
@@ -187,7 +195,7 @@ def test_post_cancelled(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
 
 
 def test_post_short_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Hi",
         character_count=2,
@@ -198,7 +206,7 @@ def test_post_short_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> No
 
 
 def test_post_long_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="A" * 3001,
         character_count=3001,
@@ -207,12 +215,27 @@ def test_post_long_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> Non
     result = runner.invoke(cli, ["post", "long topic", "--yes"])
     assert "exceeds 3000" in result.output
 
+
+def test_post_schedule_advisory(
+    runner: CliRunner, mock_engine_cls: MagicMock
+) -> None:
+    mock_engine = _mock_engine(advisory="Not in a best posting window (7-9).")
+    mock_engine.generate_draft.return_value = GeneratedDraft(
+        content="Post content",
+        character_count=12,
+    )
+    mock_engine.publish_draft.return_value = "urn:li:share:12345"
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["post", "my topic", "--yes"])
+    assert "Not in a best posting window (7-9)." in result.output
+
+
 def test_post_generation_error(
     runner: CliRunner, mock_engine_cls: MagicMock
 ) -> None:
     from engagedin.llm.client import LLMConfigError
 
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.side_effect = LLMConfigError("LLM_API_KEY is not set")
     mock_engine_cls.return_value = mock_engine
     result = runner.invoke(cli, ["post", "my topic", "--yes"])
@@ -223,7 +246,7 @@ def test_post_generation_error(
 def test_post_publish_error(
     runner: CliRunner, mock_engine_cls: MagicMock
 ) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Post content",
         character_count=12,
@@ -234,6 +257,7 @@ def test_post_publish_error(
     assert result.exit_code == 1
     assert "Could not publish the post" in result.output
     assert "publish boom" in result.output
+
 
 def test_rules_show(runner: CliRunner) -> None:
     result = runner.invoke(cli, ["rules", "show"])
@@ -343,7 +367,7 @@ def test_auth_login_no_access_token(
 
 
 def test_headliner_defaults(runner: CliRunner) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Opinative post about tech news",
         character_count=30,
@@ -360,7 +384,7 @@ def test_headliner_defaults(runner: CliRunner) -> None:
 
 
 def test_headliner_with_options(runner: CliRunner) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="AI opinion piece",
         character_count=16,
@@ -378,7 +402,7 @@ def test_headliner_with_options(runner: CliRunner) -> None:
 
 
 def test_headliner_cancelled(runner: CliRunner) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Draft that gets cancelled",
         character_count=25,
@@ -391,7 +415,7 @@ def test_headliner_cancelled(runner: CliRunner) -> None:
 
 
 def test_headliner_short_warning(runner: CliRunner) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Hi",
         character_count=2,
@@ -403,7 +427,7 @@ def test_headliner_short_warning(runner: CliRunner) -> None:
 
 
 def test_headliner_long_warning(runner: CliRunner) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="A" * 3001,
         character_count=3001,
@@ -412,10 +436,12 @@ def test_headliner_long_warning(runner: CliRunner) -> None:
         result = runner.invoke(cli, ["headliner", "--yes"])
 
     assert "exceeds 3000" in result.output
+
+
 def test_headliner_generation_error(runner: CliRunner) -> None:
     from engagedin.news.client import NewsError
 
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.side_effect = NewsError("No news found")
     with patch("engagedin.cli.main.Engine", return_value=mock_engine):
         result = runner.invoke(cli, ["headliner", "--yes"])
@@ -425,8 +451,21 @@ def test_headliner_generation_error(runner: CliRunner) -> None:
     assert "No news found" in result.output
 
 
+def test_headliner_schedule_advisory(runner: CliRunner) -> None:
+    mock_engine = _mock_engine(advisory="Not in a best posting window (7-9).")
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="Opinion piece",
+        character_count=13,
+    )
+    mock_engine.publish_draft.return_value = "urn:li:share:12345"
+    with patch("engagedin.cli.main.Engine", return_value=mock_engine):
+        result = runner.invoke(cli, ["headliner", "--yes"])
+
+    assert "Not in a best posting window (7-9)." in result.output
+
+
 def test_headliner_publish_error(runner: CliRunner) -> None:
-    mock_engine = MagicMock()
+    mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
         content="Opinion piece",
         character_count=13,

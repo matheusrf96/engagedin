@@ -102,6 +102,23 @@ def test_engine_init_does_not_require_linkedin_token() -> None:
         engine.publish_draft(GeneratedDraft(content="Test content"))
 
 
+def test_schedule_advisory_in_best_window() -> None:
+    from datetime import datetime
+
+    engine = Engine(ruleset=PostRuleset(), llm_client=MagicMock(spec=LLMClient))
+    assert engine.schedule_advisory(now=datetime(2026, 6, 9, 8, 30)) is None
+
+
+def test_schedule_advisory_outside_best_window() -> None:
+    from datetime import datetime
+
+    engine = Engine(ruleset=PostRuleset(), llm_client=MagicMock(spec=LLMClient))
+    message = engine.schedule_advisory(now=datetime(2026, 6, 9, 14, 0))
+    assert message is not None
+    assert "best posting window" in message
+    assert "7-9" in message
+
+
 def test_generate_headliner_draft() -> None:
     mock_llm = MagicMock(spec=LLMClient)
     mock_llm.generate_headliner_post.return_value = "Opinion about AI news"

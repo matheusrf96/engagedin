@@ -144,6 +144,10 @@ def post(topic: str, rules: str | None, yes: bool) -> None:
             "[yellow]Warning: Post exceeds 3000 characters (LinkedIn limit).[/yellow]"
         )
 
+    advisory = engine.schedule_advisory()
+    if advisory:
+        console.print(f"[yellow]{advisory}[/yellow]")
+
     if not yes:
         confirm = Confirm.ask("Publish this post to LinkedIn?")
         if not confirm:
@@ -227,6 +231,10 @@ def headliner(
         console.print(
             "[yellow]Warning: Post exceeds 3000 characters (LinkedIn limit).[/yellow]"
         )
+
+    advisory = engine.schedule_advisory()
+    if advisory:
+        console.print(f"[yellow]{advisory}[/yellow]")
 
     if not yes:
         confirm = Confirm.ask("Publish this post to LinkedIn?")
