@@ -6,6 +6,7 @@ import threading
 import urllib.parse
 import webbrowser
 from collections.abc import Callable
+from http import HTTPStatus
 from typing import ClassVar
 from urllib.parse import urlencode
 
@@ -37,20 +38,20 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
         code = params.get("code", [None])[0]
 
         if returned_state != self.expected_state:
-            self.send_response(400)
+            self.send_response(HTTPStatus.BAD_REQUEST)
             self.end_headers()
             self.wfile.write(b"State mismatch")
             return
 
         if code:
             OAuthCallbackHandler.authorization_code = code
-            self.send_response(200)
+            self.send_response(HTTPStatus.OK)
             self.end_headers()
             self.wfile.write(
                 b"Authentication successful! You can close this tab."
             )
         else:
-            self.send_response(400)
+            self.send_response(HTTPStatus.BAD_REQUEST)
             self.end_headers()
             self.wfile.write(b"Authorization failed")
 

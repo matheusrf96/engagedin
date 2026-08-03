@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from http import HTTPStatus
+
 import httpx
 
 from engagedin.core.config import settings
@@ -49,7 +51,7 @@ class LinkedInClient:
             headers=self._headers(),
             json=body,
         )
-        if response.status_code != 201:
+        if response.status_code != HTTPStatus.CREATED:
             raise LinkedInError(
                 f"LinkedIn API error (HTTP {response.status_code}): {response.text}"
             )
