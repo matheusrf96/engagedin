@@ -143,6 +143,7 @@ engagedin/
 poetry install --with dev
 poetry run pytest --cov=engagedin
 poetry run ruff check .
+poetry run mypy engagedin
 ```
 
 ## License

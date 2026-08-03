@@ -24,5 +24,7 @@ jobs:
       - run: poetry install --with dev
       - name: Lint
         run: poetry run ruff check .
+      - name: Type check
+        run: poetry run mypy engagedin
       - name: Test with coverage gate
         run: poetry run pytest --cov=engagedin --cov-fail-under=100 -q
