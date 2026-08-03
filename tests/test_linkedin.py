@@ -76,6 +76,27 @@ def test_create_post_api_error(
         client.create_post(post)
 
 
+def test_create_post_retries_on_transport_error(
+    mock_linkedin_settings: MagicMock,
+    mock_httpx_post: MagicMock,
+) -> None:
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 201
+    mock_response.headers = {"x-restli-id": "urn:li:share:12345"}
+    mock_httpx_post.side_effect = [
+        httpx.ConnectError("connection reset"),
+        mock_response,
+    ]
+    mock_linkedin_settings.linkedin_access_token = "test-token"
+
+    client = LinkedInClient()
+    post = Post(author="urn:li:person:abc123", commentary="Test post content")
+    result = client.create_post(post)
+
+    assert result == "urn:li:share:12345"
+    assert mock_httpx_post.call_count == 2
+
+
 def test_create_post_missing_urn(
     mock_linkedin_settings: MagicMock,
     mock_httpx_post: MagicMock,

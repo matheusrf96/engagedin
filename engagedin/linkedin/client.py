@@ -3,6 +3,7 @@ from __future__ import annotations
 from http import HTTPStatus
 
 import httpx
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from engagedin.core.config import settings
 from engagedin.core.models import Post
@@ -10,6 +11,8 @@ from engagedin.core.models import Post
 API_BASE = "https://api.linkedin.com"
 POSTS_ENDPOINT = "/rest/posts"
 LINKEDIN_VERSION = "202506"
+
+RETRYABLE_ERRORS = httpx.TransportError
 
 
 class LinkedInError(Exception):
@@ -33,6 +36,12 @@ class LinkedInClient:
             "Content-Type": "application/json",
         }
 
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_ERRORS),
+        wait=wait_exponential(multiplier=0.5, min=1, max=5),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     def create_post(self, post: Post) -> str:
         body = {
             "author": post.author,
@@ -60,6 +69,12 @@ class LinkedInClient:
             raise LinkedInError("No post URN returned by LinkedIn API")
         return post_urn
 
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_ERRORS),
+        wait=wait_exponential(multiplier=0.5, min=1, max=5),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     def get_user_info(self) -> dict:
         response = httpx.get(
             f"{API_BASE}/v2/userinfo",

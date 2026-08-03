@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from engagedin.core.config import settings
 from engagedin.news.models import NewsArticle
@@ -77,6 +78,12 @@ class NewsClient:
             published_at=datetime.fromtimestamp(published, tz=UTC).isoformat(),
         )
 
+    @retry(
+        retry=retry_if_exception_type(httpx.TransportError),
+        wait=wait_exponential(multiplier=0.5, min=1, max=5),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     def _fetch_from_hackernews(
         self, days: int, topic: str
     ) -> list[NewsArticle]:
@@ -105,6 +112,12 @@ class NewsClient:
 
         return articles
 
+    @retry(
+        retry=retry_if_exception_type(httpx.TransportError),
+        wait=wait_exponential(multiplier=0.5, min=1, max=5),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     def _fetch_from_newsapi(
         self, days: int, topic: str
     ) -> list[NewsArticle]:
