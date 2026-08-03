@@ -19,7 +19,7 @@ from engagedin.rules.loader import load_ruleset
 
 console = Console()
 
-KNOWN_ERRORS = (LLMConfigError, NewsError, LinkedInError, RuntimeError)
+KNOWN_ERRORS = (LLMConfigError, NewsError, LinkedInError)
 
 
 def _fail(message: str) -> NoReturn:

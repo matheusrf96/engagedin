@@ -8,7 +8,7 @@ from engagedin.core.models import GeneratedDraft, Post, PostRuleset
 from engagedin.core.schedule import is_best_time
 from engagedin.linkedin.client import LinkedInClient
 from engagedin.llm.client import LLMClient
-from engagedin.news.client import NewsClient
+from engagedin.news.client import NewsClient, NewsError
 from engagedin.rules.loader import load_ruleset
 
 
@@ -45,7 +45,7 @@ class Engine:
     ) -> GeneratedDraft:
         articles = self.news.fetch_tech_news(days=days, topic=topic)
         if not articles:
-            raise RuntimeError(
+            raise NewsError(
                 f"No news articles found for topic '{topic}' in the last {days} day(s)"
             )
         news_context = NewsClient.format_articles(articles)

@@ -10,7 +10,7 @@ from engagedin.core.engine import Engine
 from engagedin.core.models import GeneratedDraft, PostRuleset
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
 from engagedin.llm.client import LLMClient
-from engagedin.news.client import NewsClient
+from engagedin.news.client import NewsClient, NewsError
 from engagedin.news.models import NewsArticle
 
 
@@ -158,5 +158,5 @@ def test_generate_headliner_draft_no_articles() -> None:
         linkedin_client=mock_linkedin,
         news_client=mock_news_client,
     )
-    with pytest.raises(RuntimeError, match="No news articles found"):
+    with pytest.raises(NewsError, match="No news articles found"):
         engine.generate_headliner_draft(days=1, topic="obscure")
