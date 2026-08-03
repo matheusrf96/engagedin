@@ -21,8 +21,13 @@ class Engine:
     ) -> None:
         self.ruleset = ruleset or load_ruleset(rules_path)
         self.llm = llm_client or LLMClient()
-        self.linkedin = linkedin_client or LinkedInClient()
+        self.linkedin = linkedin_client
         self.news = news_client or NewsClient()
+
+    def _get_linkedin(self) -> LinkedInClient:
+        if self.linkedin is None:
+            self.linkedin = LinkedInClient()
+        return self.linkedin
 
     def generate_draft(self, topic: str) -> GeneratedDraft:
         content = self.llm.generate_post(topic, self.ruleset)
@@ -51,8 +56,9 @@ class Engine:
         )
 
     def publish_draft(self, draft: GeneratedDraft) -> str:
+        linkedin = self._get_linkedin()
         if not settings.linkedin_user_urn:
-            user_info = self.linkedin.get_user_info()
+            user_info = linkedin.get_user_info()
             author = f"urn:li:person:{user_info['sub']}"
         else:
             author = settings.linkedin_user_urn
@@ -61,7 +67,7 @@ class Engine:
             author=author,
             commentary=draft.content,
         )
-        post_urn = self.linkedin.create_post(post)
+        post_urn = linkedin.create_post(post)
         return post_urn
 
     def generate_and_publish(self, topic: str) -> tuple[GeneratedDraft, str]:

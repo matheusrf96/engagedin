@@ -93,6 +93,15 @@ def test_generate_and_publish() -> None:
     assert post_urn == "urn:li:share:67890"
 
 
+def test_engine_init_does_not_require_linkedin_token() -> None:
+    from engagedin.linkedin.client import LinkedInError
+
+    engine = Engine(ruleset=PostRuleset())
+    assert engine.linkedin is None
+    with pytest.raises(LinkedInError, match="No LinkedIn access token"):
+        engine.publish_draft(GeneratedDraft(content="Test content"))
+
+
 def test_generate_headliner_draft() -> None:
     mock_llm = MagicMock(spec=LLMClient)
     mock_llm.generate_headliner_post.return_value = "Opinion about AI news"
