@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Retry with exponential backoff for LinkedIn and news HTTP calls (tenacity).
+- `mypy` type checking enforced in development and CI (with `types-PyYAML` stubs).
+- `run_oauth_login()` service that encapsulates the OAuth browser flow.
+
+### Changed
+
+- HTTP status codes now use the `HTTPStatus` enum instead of raw ints.
+- OAuth login flow moved out of the CLI layer into `linkedin/auth.py`.
+- Tests use fixture-based patching instead of inline `with patch(...)` blocks.
+
 ## [0.3.0] - 2026-08-03
 
 ### Added
