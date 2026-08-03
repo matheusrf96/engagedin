@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import http.server
-import secrets
-import threading
-import webbrowser
 from typing import NoReturn
 
 import click
@@ -15,12 +11,7 @@ from rich.prompt import Confirm
 from engagedin.core.config import settings
 from engagedin.core.engine import Engine
 from engagedin.core.env import save_env_values
-from engagedin.linkedin.auth import (
-    OAuthCallbackHandler,
-    build_authorization_url,
-    exchange_code_for_token,
-    get_user_urn,
-)
+from engagedin.linkedin.auth import OAuthError, run_oauth_login
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
 from engagedin.llm.client import LLMConfigError
 from engagedin.news.client import NewsError
@@ -46,6 +37,10 @@ def auth() -> None:
     """Manage LinkedIn authentication."""
 
 
+def _print_auth_url_fallback(auth_url: str) -> None:
+    console.print(f"If the browser doesn't open, visit:\n{auth_url}")
+
+
 @auth.command(name="login")
 def auth_login() -> None:
     """Authenticate with LinkedIn via OAuth 2.0."""
@@ -55,41 +50,16 @@ def auth_login() -> None:
         )
         raise SystemExit(1)
 
-    state = secrets.token_urlsafe(32)
-    auth_url = build_authorization_url(state)
-
-    OAuthCallbackHandler.authorization_code = None
-    OAuthCallbackHandler.expected_state = state
-
-    server = http.server.HTTPServer(("localhost", 18473), OAuthCallbackHandler)
-    thread = threading.Thread(target=server.serve_forever)
-    thread.daemon = True
-    thread.start()
-
     console.print(
         "[bold]Opening browser for LinkedIn authorization...[/bold]"
     )
-    console.print(f"If the browser doesn't open, visit:\n{auth_url}")
-    webbrowser.open(auth_url)
 
-    server.handle_request()
-    server.server_close()
+    try:
+        access_token, user_urn = run_oauth_login(on_url=_print_auth_url_fallback)
+    except OAuthError as e:
+        _fail(str(e))
 
-    code = OAuthCallbackHandler.authorization_code
-    if not code:
-        console.print("[red]Authorization failed or was cancelled[/red]")
-        raise SystemExit(1)
-
-    console.print("[green]Authorization code received, exchanging for token...[/green]")
-    token = exchange_code_for_token(code)
-
-    access_token = token.get("access_token", "")
-    if not access_token:
-        console.print("[red]Failed to obtain access token[/red]")
-        raise SystemExit(1)
-
-    console.print("[green]Access token obtained! Fetching your profile...[/green]")
-    user_urn = get_user_urn(access_token)
+    console.print("[green]Access token obtained![/green]")
     console.print(f"[green]Authenticated as: {user_urn}[/green]")
 
     env_path = save_env_values(

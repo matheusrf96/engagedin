@@ -8,7 +8,10 @@ from click.testing import CliRunner
 
 from engagedin.cli.main import cli
 from engagedin.core.models import GeneratedDraft
+from engagedin.linkedin.auth import OAuthError
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
+from engagedin.llm.client import LLMConfigError
+from engagedin.news.client import NewsError
 
 
 @pytest.fixture
@@ -35,32 +38,14 @@ def mock_settings() -> Generator[MagicMock, None, None]:
 
 
 @pytest.fixture
-def mock_build_url() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.build_authorization_url") as m:
+def mock_run_oauth_login() -> Generator[MagicMock, None, None]:
+    with patch("engagedin.cli.main.run_oauth_login") as m:
         yield m
 
 
 @pytest.fixture
-def mock_webbrowser_open() -> Generator[MagicMock, None, None]:
-    with patch("webbrowser.open") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_httpserver() -> Generator[MagicMock, None, None]:
-    with patch("http.server.HTTPServer") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_exchange_token() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.exchange_code_for_token") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_get_urn() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.get_user_urn") as m:
+def mock_save_env() -> Generator[MagicMock, None, None]:
+    with patch("engagedin.cli.main.save_env_values") as m:
         yield m
 
 
@@ -150,8 +135,6 @@ def test_draft_with_rules(runner: CliRunner, mock_engine_cls: MagicMock) -> None
 def test_draft_generation_error(
     runner: CliRunner, mock_engine_cls: MagicMock
 ) -> None:
-    from engagedin.llm.client import LLMConfigError
-
     mock_engine = _mock_engine()
     mock_engine.generate_draft.side_effect = LLMConfigError("LLM_API_KEY is not set")
     mock_engine_cls.return_value = mock_engine
@@ -233,8 +216,6 @@ def test_post_schedule_advisory(
 def test_post_generation_error(
     runner: CliRunner, mock_engine_cls: MagicMock
 ) -> None:
-    from engagedin.llm.client import LLMConfigError
-
     mock_engine = _mock_engine()
     mock_engine.generate_draft.side_effect = LLMConfigError("LLM_API_KEY is not set")
     mock_engine_cls.return_value = mock_engine
@@ -283,83 +264,62 @@ def test_config_show_masks_secrets(runner: CliRunner, monkeypatch) -> None:
     assert "supersecret123" not in result.output
 
 
-@pytest.mark.usefixtures("mock_webbrowser_open")
+def _fake_run_oauth_login(on_url=None, **_):
+    if on_url is not None:
+        on_url("http://dummy.url/auth")
+    return ("tok_abc123", "urn:li:person:user999")
+
+
 def test_auth_login_success(
     runner: CliRunner,
     mock_settings: MagicMock,
-    mock_build_url: MagicMock,
-    mock_httpserver: MagicMock,
-    mock_exchange_token: MagicMock,
-    mock_get_urn: MagicMock,
+    mock_run_oauth_login: MagicMock,
+    mock_save_env: MagicMock,
 ) -> None:
-    from engagedin.linkedin.auth import OAuthCallbackHandler
-
-    mock_token = {"access_token": "tok_abc123"}
     mock_settings.linkedin_client_id = "test_id"
     mock_settings.linkedin_client_secret = "test_secret"
-    mock_build_url.return_value = "http://dummy.url/auth"
-    mock_exchange_token.return_value = mock_token
-    mock_get_urn.return_value = "urn:li:person:user999"
-
-    mock_server = MagicMock()
-    mock_httpserver.return_value = mock_server
-    mock_server.handle_request.side_effect = (
-        lambda: setattr(
-            OAuthCallbackHandler, "authorization_code", "code_xyz"
-        )
-    )
+    mock_run_oauth_login.side_effect = _fake_run_oauth_login
 
     result = runner.invoke(cli, ["auth", "login"])
 
     assert result.exit_code == 0
-    assert "Authorization code received" in result.output
+    assert "Opening browser" in result.output
+    assert "http://dummy.url/auth" in result.output
     assert "tok_abc123" in result.output
     assert "urn:li:person:user999" in result.output
+    mock_save_env.assert_called_once_with(
+        ".env",
+        {
+            "LINKEDIN_ACCESS_TOKEN": "tok_abc123",
+            "LINKEDIN_USER_URN": "urn:li:person:user999",
+        },
+    )
 
 
-@pytest.mark.usefixtures("mock_webbrowser_open")
-def test_auth_login_no_code(
+def test_auth_login_authorization_failed(
     runner: CliRunner,
     mock_settings: MagicMock,
-    mock_build_url: MagicMock,
-    mock_httpserver: MagicMock,
+    mock_run_oauth_login: MagicMock,
 ) -> None:
     mock_settings.linkedin_client_id = "test_id"
     mock_settings.linkedin_client_secret = "test_secret"
-    mock_build_url.return_value = "http://dummy.url/auth"
-
-    mock_server = MagicMock()
-    mock_httpserver.return_value = mock_server
-
+    mock_run_oauth_login.side_effect = OAuthError(
+        "Authorization failed or was cancelled"
+    )
     result = runner.invoke(cli, ["auth", "login"])
 
     assert result.exit_code == 1
-    assert "Authorization failed" in result.output
+    assert "Authorization failed or was cancelled" in result.output
 
 
-@pytest.mark.usefixtures("mock_webbrowser_open")
 def test_auth_login_no_access_token(
     runner: CliRunner,
     mock_settings: MagicMock,
-    mock_build_url: MagicMock,
-    mock_httpserver: MagicMock,
-    mock_exchange_token: MagicMock,
+    mock_run_oauth_login: MagicMock,
 ) -> None:
-    from engagedin.linkedin.auth import OAuthCallbackHandler
-
     mock_settings.linkedin_client_id = "test_id"
     mock_settings.linkedin_client_secret = "test_secret"
-    mock_build_url.return_value = "http://dummy.url/auth"
-    mock_exchange_token.return_value = {"access_token": ""}
-
-    mock_server = MagicMock()
-    mock_httpserver.return_value = mock_server
-    mock_server.handle_request.side_effect = (
-        lambda: setattr(
-            OAuthCallbackHandler, "authorization_code", "code_xyz"
-        )
-    )
-
+    mock_run_oauth_login.side_effect = OAuthError("Failed to obtain access token")
     result = runner.invoke(cli, ["auth", "login"])
 
     assert result.exit_code == 1
@@ -392,7 +352,7 @@ def test_headliner_with_options(runner: CliRunner) -> None:
     with patch("engagedin.cli.main.Engine", return_value=mock_engine):
         result = runner.invoke(
             cli, ["headliner", "--days", "3", "--topic", "AI", "--yes"]
-        )
+    )
 
     assert result.exit_code == 0
     assert "AI opinion piece" in result.output
@@ -439,8 +399,6 @@ def test_headliner_long_warning(runner: CliRunner) -> None:
 
 
 def test_headliner_generation_error(runner: CliRunner) -> None:
-    from engagedin.news.client import NewsError
-
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.side_effect = NewsError("No news found")
     with patch("engagedin.cli.main.Engine", return_value=mock_engine):
