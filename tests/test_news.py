@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from datetime import UTC, datetime
+from functools import partial
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -17,29 +18,36 @@ def mock_httpx_client() -> Generator[MagicMock, None, None]:
         yield m
 
 
+def _hackernews_get_side_effect(
+    url: str,
+    story_ids: list[int] | None = None,
+    items: list[dict] | None = None,
+    **kwargs,
+):
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    if url.endswith("/topstories.json"):
+        resp.json.return_value = story_ids or []
+    elif "/item/" in url:
+        sid = int(url.split("/item/")[1].split(".json")[0])
+        for item in items or []:
+            if item["id"] == sid:
+                resp.json.return_value = item
+                break
+        else:
+            resp.json.return_value = None
+    return resp
+
+
 def _mock_hackernews_responses(
     mock_client: MagicMock,
     story_ids: list[int] | None = None,
     items: list[dict] | None = None,
 ) -> None:
     mock_client.get.return_value.raise_for_status.return_value = None
-
-    def get_side_effect(url: str, **kwargs):
-        resp = MagicMock()
-        resp.raise_for_status.return_value = None
-        if url.endswith("/topstories.json"):
-            resp.json.return_value = story_ids or []
-        elif "/item/" in url:
-            sid = int(url.split("/item/")[1].split(".json")[0])
-            for item in items or []:
-                if item["id"] == sid:
-                    resp.json.return_value = item
-                    break
-            else:
-                resp.json.return_value = None
-        return resp
-
-    mock_client.get.side_effect = get_side_effect
+    mock_client.get.side_effect = partial(
+        _hackernews_get_side_effect, story_ids=story_ids, items=items
+    )
 
 
 def test_hackernews_success(mock_httpx_client: MagicMock) -> None:
@@ -110,32 +118,33 @@ def test_hackernews_filters_by_topic(mock_httpx_client: MagicMock) -> None:
     assert articles[0].title == "AI Breakthrough in 2026"
 
 
+def _hackernews_mixed_errors_side_effect(url: str, now: int, **kwargs):
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    if url.endswith("/topstories.json"):
+        resp.json.return_value = [1, 2]
+    elif "/item/1.json" in url:
+        resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
+        )
+    elif "/item/2.json" in url:
+        resp.json.return_value = {
+            "id": 2,
+            "type": "story",
+            "title": "Working Story",
+            "url": "https://example.com/2",
+            "time": now - 1000,
+        }
+    return resp
+
+
 def test_hackernews_skips_http_errors(
     mock_httpx_client: MagicMock,
 ) -> None:
     now = int(datetime.now(UTC).timestamp())
 
     mock_client = mock_httpx_client.return_value.__enter__.return_value
-    def get_side_effect(url: str, **kwargs):
-        resp = MagicMock()
-        resp.raise_for_status.return_value = None
-        if url.endswith("/topstories.json"):
-            resp.json.return_value = [1, 2]
-        elif "/item/1.json" in url:
-            resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
-            )
-        elif "/item/2.json" in url:
-            resp.json.return_value = {
-                "id": 2,
-                "type": "story",
-                "title": "Working Story",
-                "url": "https://example.com/2",
-                "time": now - 1000,
-            }
-        return resp
-
-    mock_client.get.side_effect = get_side_effect
+    mock_client.get.side_effect = partial(_hackernews_mixed_errors_side_effect, now=now)
 
     client = NewsClient(source="hackernews")
     articles = client.fetch_tech_news(days=1, topic="technology")
