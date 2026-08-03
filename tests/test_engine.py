@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from engagedin.core.engine import Engine
 from engagedin.core.models import GeneratedDraft, PostRuleset
-from engagedin.linkedin.client import LinkedInClient
+from engagedin.linkedin.client import LinkedInClient, LinkedInError
 from engagedin.llm.client import LLMClient
 from engagedin.news.client import NewsClient
 from engagedin.news.models import NewsArticle
@@ -94,8 +95,6 @@ def test_generate_and_publish() -> None:
 
 
 def test_engine_init_does_not_require_linkedin_token() -> None:
-    from engagedin.linkedin.client import LinkedInError
-
     engine = Engine(ruleset=PostRuleset())
     assert engine.linkedin is None
     with pytest.raises(LinkedInError, match="No LinkedIn access token"):
@@ -103,15 +102,11 @@ def test_engine_init_does_not_require_linkedin_token() -> None:
 
 
 def test_schedule_advisory_in_best_window() -> None:
-    from datetime import datetime
-
     engine = Engine(ruleset=PostRuleset(), llm_client=MagicMock(spec=LLMClient))
     assert engine.schedule_advisory(now=datetime(2026, 6, 9, 8, 30)) is None
 
 
 def test_schedule_advisory_outside_best_window() -> None:
-    from datetime import datetime
-
     engine = Engine(ruleset=PostRuleset(), llm_client=MagicMock(spec=LLMClient))
     message = engine.schedule_advisory(now=datetime(2026, 6, 9, 14, 0))
     assert message is not None

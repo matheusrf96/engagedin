@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from engagedin.core.models import PostRuleset
-from engagedin.llm.client import LLMClient
+from engagedin.llm.client import LLMClient, LLMConfigError
 
 
 @pytest.fixture
@@ -85,8 +85,6 @@ def test_generate_post_custom_provider(
 def test_generate_post_missing_api_key(
     mock_completion_fn: MagicMock,
 ) -> None:
-    from engagedin.llm.client import LLMConfigError
-
     client = LLMClient(provider="deepseek", model="deepseek-chat", api_key=None)
     with pytest.raises(LLMConfigError, match="LLM_API_KEY is not set"):
         client.generate_post("some topic", PostRuleset())
@@ -110,8 +108,6 @@ def test_generate_post_local_provider_no_key(
 def test_generate_headliner_missing_api_key(
     mock_completion_fn: MagicMock,
 ) -> None:
-    from engagedin.llm.client import LLMConfigError
-
     client = LLMClient(provider="deepseek", model="deepseek-chat", api_key=None)
     with pytest.raises(LLMConfigError, match="LLM_API_KEY is not set"):
         client.generate_headliner_post("AI", "1. News", PostRuleset())
