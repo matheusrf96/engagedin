@@ -14,6 +14,7 @@ from rich.prompt import Confirm
 
 from engagedin.core.config import settings
 from engagedin.core.engine import Engine
+from engagedin.core.env import save_env_values
 from engagedin.linkedin.auth import (
     OAuthCallbackHandler,
     build_authorization_url,
@@ -91,8 +92,16 @@ def auth_login() -> None:
     user_urn = get_user_urn(access_token)
     console.print(f"[green]Authenticated as: {user_urn}[/green]")
 
+    env_path = save_env_values(
+        ".env",
+        {
+            "LINKEDIN_ACCESS_TOKEN": access_token,
+            "LINKEDIN_USER_URN": user_urn,
+        },
+    )
+    console.print(f"[green]Credentials saved to {env_path}[/green]")
     console.print(
-        "\n[yellow]Add these to your .env file:[/yellow]"
+        "\n[yellow]Your credentials (also stored above):[/yellow]"
     )
     console.print(f"LINKEDIN_ACCESS_TOKEN={access_token}")
     console.print(f"LINKEDIN_USER_URN={user_urn}")
