@@ -38,3 +38,17 @@ def test_ignores_commented_keys(tmp_path: Path) -> None:
     path.write_text("# TOKEN=secret\n")
     save_env_values(path, {"TOKEN": "new"})
     assert path.read_text() == "# TOKEN=secret\nTOKEN=new\n"
+
+
+def test_restricts_file_permissions(tmp_path: Path) -> None:
+    path = tmp_path / ".env"
+    save_env_values(path, {"TOKEN": "secret"})
+    assert path.stat().st_mode & 0o777 == 0o600
+
+
+def test_restricts_permissions_on_existing_file(tmp_path: Path) -> None:
+    path = tmp_path / ".env"
+    path.write_text("FOO=bar\n")
+    path.chmod(0o644)
+    save_env_values(path, {"FOO": "updated"})
+    assert path.stat().st_mode & 0o777 == 0o600
