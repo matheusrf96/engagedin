@@ -254,3 +254,59 @@ class TestRunOAuthLogin:
 
         with pytest.raises(OAuthError, match="Failed to obtain access token"):
             run_oauth_login()
+
+    def test_exchange_error_wrapped(
+        self,
+        mock_build_url: MagicMock,
+        mock_callback_server: MagicMock,
+        mock_webbrowser_open: MagicMock,
+        mock_exchange_token: MagicMock,
+    ) -> None:
+        mock_build_url.return_value = "http://dummy.url/auth"
+        mock_exchange_token.side_effect = httpx.ConnectError("connection refused")
+        mock_server = MagicMock()
+        mock_callback_server.return_value = mock_server
+        mock_server.handle_request.side_effect = partial(_grant_authorization_code, "code_x")
+
+        with pytest.raises(OAuthError, match="Failed to exchange the authorization code"):
+            run_oauth_login()
+
+    def test_exchange_oauth2_error_wrapped(
+        self,
+        mock_build_url: MagicMock,
+        mock_callback_server: MagicMock,
+        mock_webbrowser_open: MagicMock,
+        mock_exchange_token: MagicMock,
+    ) -> None:
+        from authlib.oauth2.rfc6749.errors import InvalidGrantError
+
+        mock_build_url.return_value = "http://dummy.url/auth"
+        mock_exchange_token.side_effect = InvalidGrantError()
+        mock_server = MagicMock()
+        mock_callback_server.return_value = mock_server
+        mock_server.handle_request.side_effect = partial(_grant_authorization_code, "code_x")
+
+        with pytest.raises(OAuthError, match="Failed to exchange the authorization code"):
+            run_oauth_login()
+
+    def test_profile_fetch_error_wrapped(
+        self,
+        mock_build_url: MagicMock,
+        mock_callback_server: MagicMock,
+        mock_webbrowser_open: MagicMock,
+        mock_exchange_token: MagicMock,
+        mock_get_urn: MagicMock,
+    ) -> None:
+        mock_build_url.return_value = "http://dummy.url/auth"
+        mock_exchange_token.return_value = OAuth2Token({"access_token": "tok_1"})
+        mock_get_urn.side_effect = httpx.HTTPStatusError(
+            "401 Unauthorized",
+            request=MagicMock(),
+            response=MagicMock(status_code=401),
+        )
+        mock_server = MagicMock()
+        mock_callback_server.return_value = mock_server
+        mock_server.handle_request.side_effect = partial(_grant_authorization_code, "code_x")
+
+        with pytest.raises(OAuthError, match="Failed to fetch your profile"):
+            run_oauth_login()

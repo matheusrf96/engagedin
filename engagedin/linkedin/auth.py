@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 
 import httpx
 from authlib.integrations.httpx_client import OAuth2Client
-from authlib.oauth2.rfc6749 import OAuth2Token
+from authlib.oauth2.rfc6749 import OAuth2Error, OAuth2Token
 
 from engagedin.core.config import settings
 
@@ -115,10 +115,16 @@ def run_oauth_login(
     if not code:
         raise OAuthError("Authorization failed or was cancelled")
 
-    token = exchange_code_for_token(code)
+    try:
+        token = exchange_code_for_token(code)
+    except (httpx.HTTPError, OAuth2Error) as e:
+        raise OAuthError(f"Failed to exchange the authorization code: {e}") from e
     access_token = token.get("access_token", "")
     if not access_token:
         raise OAuthError("Failed to obtain access token")
 
-    user_urn = get_user_urn(access_token)
+    try:
+        user_urn = get_user_urn(access_token)
+    except httpx.HTTPError as e:
+        raise OAuthError(f"Failed to fetch your profile: {e}") from e
     return access_token, user_urn
