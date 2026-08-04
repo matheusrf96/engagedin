@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from engagedin.core.models import PostRuleset
-from engagedin.llm.client import LLMClient
+from engagedin.llm.client import LLMClient, LLMConfigError
 
 
 @pytest.fixture
@@ -80,6 +80,38 @@ def test_generate_post_custom_provider(
 
     assert result == "Response"
     assert mock_completion_fn.call_args[1]["model"] == "gpt-4o"
+
+
+def test_generate_post_missing_api_key(
+    mock_completion_fn: MagicMock,
+) -> None:
+    client = LLMClient(provider="deepseek", model="deepseek-chat", api_key=None)
+    with pytest.raises(LLMConfigError, match="LLM_API_KEY is not set"):
+        client.generate_post("some topic", PostRuleset())
+    mock_completion_fn.assert_not_called()
+
+
+def test_generate_post_local_provider_no_key(
+    mock_completion_fn: MagicMock,
+) -> None:
+    mock_completion = MagicMock()
+    mock_completion.choices[0].message.content = "Local response"
+    mock_completion_fn.return_value = mock_completion
+
+    client = LLMClient(provider="ollama", model="llama3", api_key=None)
+    result = client.generate_post("local topic", PostRuleset())
+
+    assert result == "Local response"
+    mock_completion_fn.assert_called_once()
+
+
+def test_generate_headliner_missing_api_key(
+    mock_completion_fn: MagicMock,
+) -> None:
+    client = LLMClient(provider="deepseek", model="deepseek-chat", api_key=None)
+    with pytest.raises(LLMConfigError, match="LLM_API_KEY is not set"):
+        client.generate_headliner_post("AI", "1. News", PostRuleset())
+    mock_completion_fn.assert_not_called()
 
 
 def test_generate_headliner_post() -> None:

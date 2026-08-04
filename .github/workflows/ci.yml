@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: poetry
+      - run: poetry install --with dev
+      - name: Lint
+        run: poetry run ruff check .
+      - name: Type check
+        run: poetry run mypy engagedin
+      - name: Test with coverage gate
+        run: poetry run pytest --cov=engagedin --cov-fail-under=100 -q

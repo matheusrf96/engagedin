@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from datetime import UTC, datetime
+from functools import partial
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -10,32 +12,45 @@ from engagedin.news.client import NewsClient, NewsError
 from engagedin.news.models import NewsArticle
 
 
+@pytest.fixture
+def mock_httpx_client() -> Generator[MagicMock, None, None]:
+    with patch("httpx.Client") as m:
+        yield m
+
+
+def _hackernews_get_side_effect(
+    url: str,
+    story_ids: list[int] | None = None,
+    items: list[dict] | None = None,
+    **kwargs,
+):
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    if url.endswith("/topstories.json"):
+        resp.json.return_value = story_ids or []
+    elif "/item/" in url:
+        sid = int(url.split("/item/")[1].split(".json")[0])
+        for item in items or []:
+            if item["id"] == sid:
+                resp.json.return_value = item
+                break
+        else:
+            resp.json.return_value = None
+    return resp
+
+
 def _mock_hackernews_responses(
     mock_client: MagicMock,
     story_ids: list[int] | None = None,
     items: list[dict] | None = None,
 ) -> None:
     mock_client.get.return_value.raise_for_status.return_value = None
-
-    def get_side_effect(url: str, **kwargs):
-        resp = MagicMock()
-        resp.raise_for_status.return_value = None
-        if url.endswith("/topstories.json"):
-            resp.json.return_value = story_ids or []
-        elif "/item/" in url:
-            sid = int(url.split("/item/")[1].split(".json")[0])
-            for item in items or []:
-                if item["id"] == sid:
-                    resp.json.return_value = item
-                    break
-            else:
-                resp.json.return_value = None
-        return resp
-
-    mock_client.get.side_effect = get_side_effect
+    mock_client.get.side_effect = partial(
+        _hackernews_get_side_effect, story_ids=story_ids, items=items
+    )
 
 
-def test_hackernews_success() -> None:
+def test_hackernews_success(mock_httpx_client: MagicMock) -> None:
     now = int(datetime.now(UTC).timestamp())
     items = [
         {
@@ -62,19 +77,18 @@ def test_hackernews_success() -> None:
     ]
     story_ids = [1, 2, 3]
 
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        _mock_hackernews_responses(mock_client, story_ids, items)
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    _mock_hackernews_responses(mock_client, story_ids, items)
 
-        client = NewsClient(source="hackernews")
-        articles = client.fetch_tech_news(days=1, topic="technology")
+    client = NewsClient(source="hackernews")
+    articles = client.fetch_tech_news(days=1, topic="technology")
 
     assert len(articles) == 2
     titles = {a.title for a in articles}
     assert titles == {"AI Breakthrough in 2026", "New Programming Language Released"}
 
 
-def test_hackernews_filters_by_topic() -> None:
+def test_hackernews_filters_by_topic(mock_httpx_client: MagicMock) -> None:
     now = int(datetime.now(UTC).timestamp())
     items = [
         {
@@ -94,51 +108,52 @@ def test_hackernews_filters_by_topic() -> None:
     ]
     story_ids = [1, 2]
 
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        _mock_hackernews_responses(mock_client, story_ids, items)
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    _mock_hackernews_responses(mock_client, story_ids, items)
 
-        client = NewsClient(source="hackernews")
-        articles = client.fetch_tech_news(days=1, topic="AI")
+    client = NewsClient(source="hackernews")
+    articles = client.fetch_tech_news(days=1, topic="AI")
 
     assert len(articles) == 1
     assert articles[0].title == "AI Breakthrough in 2026"
 
 
-def test_hackernews_skips_http_errors() -> None:
+def _hackernews_mixed_errors_side_effect(url: str, now: int, **kwargs):
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    if url.endswith("/topstories.json"):
+        resp.json.return_value = [1, 2]
+    elif "/item/1.json" in url:
+        resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
+        )
+    elif "/item/2.json" in url:
+        resp.json.return_value = {
+            "id": 2,
+            "type": "story",
+            "title": "Working Story",
+            "url": "https://example.com/2",
+            "time": now - 1000,
+        }
+    return resp
+
+
+def test_hackernews_skips_http_errors(
+    mock_httpx_client: MagicMock,
+) -> None:
     now = int(datetime.now(UTC).timestamp())
 
-    def get_side_effect(url: str, **kwargs):
-        resp = MagicMock()
-        resp.raise_for_status.return_value = None
-        if url.endswith("/topstories.json"):
-            resp.json.return_value = [1, 2]
-        elif "/item/1.json" in url:
-            resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
-            )
-        elif "/item/2.json" in url:
-            resp.json.return_value = {
-                "id": 2,
-                "type": "story",
-                "title": "Working Story",
-                "url": "https://example.com/2",
-                "time": now - 1000,
-            }
-        return resp
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    mock_client.get.side_effect = partial(_hackernews_mixed_errors_side_effect, now=now)
 
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        mock_client.get.side_effect = get_side_effect
-
-        client = NewsClient(source="hackernews")
-        articles = client.fetch_tech_news(days=1, topic="technology")
+    client = NewsClient(source="hackernews")
+    articles = client.fetch_tech_news(days=1, topic="technology")
 
     assert len(articles) == 1
     assert articles[0].title == "Working Story"
 
 
-def test_hackernews_skips_non_story() -> None:
+def test_hackernews_skips_non_story(mock_httpx_client: MagicMock) -> None:
     now = int(datetime.now(UTC).timestamp())
     items = [
         {
@@ -164,28 +179,26 @@ def test_hackernews_skips_non_story() -> None:
     ]
     story_ids = [1, 2, 3]
 
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        _mock_hackernews_responses(mock_client, story_ids, items)
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    _mock_hackernews_responses(mock_client, story_ids, items)
 
-        client = NewsClient(source="hackernews")
-        articles = client.fetch_tech_news(days=1, topic="technology")
+    client = NewsClient(source="hackernews")
+    articles = client.fetch_tech_news(days=1, topic="technology")
 
     assert len(articles) == 2
 
 
-def test_hackernews_empty_results() -> None:
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        _mock_hackernews_responses(mock_client, [], [])
+def test_hackernews_empty_results(mock_httpx_client: MagicMock) -> None:
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    _mock_hackernews_responses(mock_client, [], [])
 
-        client = NewsClient(source="hackernews")
-        articles = client.fetch_tech_news(days=1, topic="technology")
+    client = NewsClient(source="hackernews")
+    articles = client.fetch_tech_news(days=1, topic="technology")
 
     assert articles == []
 
 
-def test_hackernews_limits_to_twenty_articles() -> None:
+def test_hackernews_limits_to_twenty_articles(mock_httpx_client: MagicMock) -> None:
     now = int(datetime.now(UTC).timestamp())
     items = [
         {
@@ -199,17 +212,16 @@ def test_hackernews_limits_to_twenty_articles() -> None:
     ]
     story_ids = list(range(25))
 
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        _mock_hackernews_responses(mock_client, story_ids, items)
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    _mock_hackernews_responses(mock_client, story_ids, items)
 
-        client = NewsClient(source="hackernews")
-        articles = client.fetch_tech_news(days=1, topic="technology")
+    client = NewsClient(source="hackernews")
+    articles = client.fetch_tech_news(days=1, topic="technology")
 
     assert len(articles) == 20
 
 
-def test_hackernews_uses_default_url_when_missing() -> None:
+def test_hackernews_uses_default_url_when_missing(mock_httpx_client: MagicMock) -> None:
     now = int(datetime.now(UTC).timestamp())
     items = [
         {
@@ -221,45 +233,43 @@ def test_hackernews_uses_default_url_when_missing() -> None:
     ]
     story_ids = [42]
 
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        _mock_hackernews_responses(mock_client, story_ids, items)
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    _mock_hackernews_responses(mock_client, story_ids, items)
 
-        client = NewsClient(source="hackernews")
-        articles = client.fetch_tech_news(days=1, topic="technology")
+    client = NewsClient(source="hackernews")
+    articles = client.fetch_tech_news(days=1, topic="technology")
 
     assert len(articles) == 1
     assert articles[0].url == "https://news.ycombinator.com/item?id=42"
 
 
-def test_newsapi_success() -> None:
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        mock_response = MagicMock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            "status": "ok",
-            "articles": [
-                {
-                    "title": "Tech News 1",
-                    "source": {"name": "TechCrunch"},
-                    "url": "https://techcrunch.com/1",
-                    "description": "Description 1",
-                    "publishedAt": "2026-06-08T12:00:00Z",
-                },
-                {
-                    "title": "Tech News 2",
-                    "source": {"name": "The Verge"},
-                    "url": "https://theverge.com/2",
-                    "description": "",
-                    "publishedAt": "2026-06-07T12:00:00Z",
-                },
-            ],
-        }
-        mock_client.get.return_value = mock_response
+def test_newsapi_success(mock_httpx_client: MagicMock) -> None:
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    mock_response = MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "status": "ok",
+        "articles": [
+            {
+                "title": "Tech News 1",
+                "source": {"name": "TechCrunch"},
+                "url": "https://techcrunch.com/1",
+                "description": "Description 1",
+                "publishedAt": "2026-06-08T12:00:00Z",
+            },
+            {
+                "title": "Tech News 2",
+                "source": {"name": "The Verge"},
+                "url": "https://theverge.com/2",
+                "description": "",
+                "publishedAt": "2026-06-07T12:00:00Z",
+            },
+        ],
+    }
+    mock_client.get.return_value = mock_response
 
-        client = NewsClient(source="newsapi", api_key="test-key")
-        articles = client.fetch_tech_news(days=1, topic="AI")
+    client = NewsClient(source="newsapi", api_key="test-key")
+    articles = client.fetch_tech_news(days=1, topic="AI")
 
     assert len(articles) == 2
     assert articles[0].title == "Tech News 1"
@@ -273,26 +283,33 @@ def test_newsapi_missing_key() -> None:
         client.fetch_tech_news(days=1, topic="tech")
 
 
-def test_newsapi_error_status() -> None:
-    with patch("httpx.Client") as mock_client_class:
-        mock_client = mock_client_class.return_value.__enter__.return_value
-        mock_response = MagicMock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            "status": "error",
-            "message": "API rate limit exceeded",
-        }
-        mock_client.get.return_value = mock_response
+def test_newsapi_error_status(mock_httpx_client: MagicMock) -> None:
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    mock_response = MagicMock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "status": "error",
+        "message": "API rate limit exceeded",
+    }
+    mock_client.get.return_value = mock_response
 
-        client = NewsClient(source="newsapi", api_key="test-key")
-        with pytest.raises(NewsError, match="API rate limit exceeded"):
-            client.fetch_tech_news(days=1, topic="tech")
+    client = NewsClient(source="newsapi", api_key="test-key")
+    with pytest.raises(NewsError, match="API rate limit exceeded"):
+        client.fetch_tech_news(days=1, topic="tech")
 
 
 def test_unknown_source() -> None:
     client = NewsClient(source="invalid")
     with pytest.raises(NewsError, match="Unknown news source: invalid"):
         client.fetch_tech_news(days=1)
+
+
+def test_network_error_wrapped(mock_httpx_client: MagicMock) -> None:
+    mock_client = mock_httpx_client.return_value.__enter__.return_value
+    mock_client.get.side_effect = httpx.ConnectError("connection refused")
+    client = NewsClient(source="hackernews")
+    with pytest.raises(NewsError, match="Failed to fetch news"):
+        client.fetch_tech_news(days=1, topic="technology")
 
 
 def test_format_articles() -> None:

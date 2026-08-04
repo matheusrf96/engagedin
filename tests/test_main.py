@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
+from engagedin.__main__ import cli
+
 
 def test_main_entry_point() -> None:
     with (
@@ -16,6 +18,4 @@ def test_main_entry_point() -> None:
 
 
 def test_main_import() -> None:
-    from engagedin.__main__ import cli
-
     assert cli is not None

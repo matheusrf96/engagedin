@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from engagedin.core.config import settings
 from engagedin.core.models import GeneratedDraft, Post, PostRuleset
+from engagedin.core.schedule import is_best_time
 from engagedin.linkedin.client import LinkedInClient
 from engagedin.llm.client import LLMClient
-from engagedin.news.client import NewsClient
+from engagedin.news.client import NewsClient, NewsError
 from engagedin.rules.loader import load_ruleset
 
 
@@ -21,8 +23,13 @@ class Engine:
     ) -> None:
         self.ruleset = ruleset or load_ruleset(rules_path)
         self.llm = llm_client or LLMClient()
-        self.linkedin = linkedin_client or LinkedInClient()
+        self.linkedin = linkedin_client
         self.news = news_client or NewsClient()
+
+    def _get_linkedin(self) -> LinkedInClient:
+        if self.linkedin is None:
+            self.linkedin = LinkedInClient()
+        return self.linkedin
 
     def generate_draft(self, topic: str) -> GeneratedDraft:
         content = self.llm.generate_post(topic, self.ruleset)
@@ -38,7 +45,7 @@ class Engine:
     ) -> GeneratedDraft:
         articles = self.news.fetch_tech_news(days=days, topic=topic)
         if not articles:
-            raise RuntimeError(
+            raise NewsError(
                 f"No news articles found for topic '{topic}' in the last {days} day(s)"
             )
         news_context = NewsClient.format_articles(articles)
@@ -51,8 +58,9 @@ class Engine:
         )
 
     def publish_draft(self, draft: GeneratedDraft) -> str:
+        linkedin = self._get_linkedin()
         if not settings.linkedin_user_urn:
-            user_info = self.linkedin.get_user_info()
+            user_info = linkedin.get_user_info()
             author = f"urn:li:person:{user_info['sub']}"
         else:
             author = settings.linkedin_user_urn
@@ -61,8 +69,19 @@ class Engine:
             author=author,
             commentary=draft.content,
         )
-        post_urn = self.linkedin.create_post(post)
+        post_urn = linkedin.create_post(post)
         return post_urn
+
+    def schedule_advisory(self, now: datetime | None = None) -> str | None:
+        """Return an advisory message when now is outside the best posting hours."""
+        now = now or datetime.now()
+        if is_best_time(now, self.ruleset.schedule.best_times):
+            return None
+        best = ", ".join(self.ruleset.schedule.best_times)
+        return (
+            f"Not in a best posting window ({best}). "
+            "Consider scheduling this post for later."
+        )
 
     def generate_and_publish(self, topic: str) -> tuple[GeneratedDraft, str]:
         draft = self.generate_draft(topic)
