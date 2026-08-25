@@ -11,10 +11,10 @@ description: >
 ## Test runner
 
 ```bash
-poetry run pytest                          # all tests
-poetry run pytest --cov=engagedin          # with coverage report
-poetry run pytest -k "test_foo" -v --tb=short  # single test, verbose
-poetry run pytest --cov=engagedin --cov-report=term-missing  # show missed lines
+uv run pytest                          # all tests
+uv run pytest --cov=engagedin          # with coverage report
+uv run pytest -k "test_foo" -v --tb=short  # single test, verbose
+uv run pytest --cov=engagedin --cov-report=term-missing  # show missed lines
 ```
 
 ## File layout
