@@ -17,11 +17,11 @@ AI-powered LinkedIn content generator. Write and publish LinkedIn posts using an
 ## Installation
 
 ```bash
-# Requirements: Python 3.12+
-pip install poetry
+# Requirements: Python 3.12+ and uv
+pip install uv
 git clone git@github.com:matheusrf96/engagedin.git
 cd engagedin
-poetry install
+uv sync
 ```
 
 ## Configuration
@@ -140,10 +140,10 @@ engagedin/
 ## Development
 
 ```bash
-poetry install --with dev
-poetry run pytest --cov=engagedin
-poetry run ruff check .
-poetry run mypy engagedin
+uv sync
+uv run pytest --cov=engagedin
+uv run ruff check .
+uv run mypy engagedin
 ```
 
 ## License
