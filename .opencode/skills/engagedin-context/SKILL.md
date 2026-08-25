@@ -15,7 +15,7 @@ AI-powered LinkedIn content generator. Write and publish LinkedIn posts using an
 ## Stack
 
 - **Language**: Python 3.12+
-- **Package manager**: Poetry
+- **Package manager**: uv
 - **CLI framework**: Click
 - **Terminal output**: Rich
 - **Config / env**: pydantic-settings

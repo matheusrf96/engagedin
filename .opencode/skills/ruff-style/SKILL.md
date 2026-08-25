@@ -35,9 +35,9 @@ select = ["E", "F", "I", "N", "W", "UP"]
 ## Running
 
 ```bash
-poetry run ruff check .              # check all files
-poetry run ruff check --fix .        # auto-fix safe violations
-poetry run ruff check tests/         # check only tests
+uv run ruff check .              # check all files
+uv run ruff check --fix .        # auto-fix safe violations
+uv run ruff check tests/         # check only tests
 ```
 
 ruff is configured as a linter only — no formatter is active.
