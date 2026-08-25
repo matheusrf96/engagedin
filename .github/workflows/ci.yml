@@ -14,16 +14,15 @@ jobs:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: pipx install poetry
-      - uses: actions/setup-python@v5
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@v6
         with:
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
-          cache: poetry
-      - run: poetry install --with dev
+      - run: uv sync --frozen
       - name: Lint
-        run: poetry run ruff check .
+        run: uv run ruff check .
       - name: Type check
-        run: poetry run mypy engagedin
+        run: uv run mypy engagedin
       - name: Test with coverage gate
-        run: poetry run pytest --cov=engagedin --cov-fail-under=100 -q
+        run: uv run pytest --cov=engagedin --cov-fail-under=100 -q
