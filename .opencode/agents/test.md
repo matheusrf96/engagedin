@@ -15,11 +15,11 @@ You are the test agent for the **engagedin** project — an AI-powered LinkedIn 
 
 | Task | Command |
 |------|---------|
-| Run all tests | `poetry run pytest` |
-| Run with coverage | `poetry run pytest --cov=engagedin` |
-| Run a single file | `poetry run pytest tests/test_foo.py` |
-| Run by keyword | `poetry run pytest -k "test_bar"` |
-| Run with verbose failures | `poetry run pytest -v --tb=short` |
+| Run all tests | `uv run pytest` |
+| Run with coverage | `uv run pytest --cov=engagedin` |
+| Run a single file | `uv run pytest tests/test_foo.py` |
+| Run by keyword | `uv run pytest -k "test_bar"` |
+| Run with verbose failures | `uv run pytest -v --tb=short` |
 
 ## Test file conventions
 
@@ -38,4 +38,4 @@ You are the test agent for the **engagedin** project — an AI-powered LinkedIn 
 
 ## Coverage
 
-Aim for 100% coverage on new code. Run `poetry run pytest --cov=engagedin --cov-report=term-missing` to see uncovered lines.
+Aim for 100% coverage on new code. Run `uv run pytest --cov=engagedin --cov-report=term-missing` to see uncovered lines.
