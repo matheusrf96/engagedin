@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from engagedin.cli.main import cli
+from cli.main import cli
 from engagedin.core.models import GeneratedDraft
 from engagedin.linkedin.auth import OAuthError
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
@@ -21,31 +21,31 @@ def runner() -> CliRunner:
 
 @pytest.fixture
 def mock_linkedin_client_cls() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.LinkedInClient") as m:
+    with patch("cli.main.LinkedInClient") as m:
         yield m
 
 
 @pytest.fixture
 def mock_engine_cls() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.Engine") as m:
+    with patch("cli.main.Engine") as m:
         yield m
 
 
 @pytest.fixture
 def mock_settings() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.settings") as m:
+    with patch("cli.main.settings") as m:
         yield m
 
 
 @pytest.fixture
 def mock_run_oauth_login() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.run_oauth_login") as m:
+    with patch("cli.main.run_oauth_login") as m:
         yield m
 
 
 @pytest.fixture
 def mock_save_env() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.save_env_values") as m:
+    with patch("cli.main.save_env_values") as m:
         yield m
 
 
@@ -256,7 +256,7 @@ def test_config_show(runner: CliRunner) -> None:
 
 def test_config_show_masks_secrets(runner: CliRunner, monkeypatch) -> None:
     monkeypatch.setattr(
-        "engagedin.cli.main.settings.linkedin_access_token",
+        "cli.main.settings.linkedin_access_token",
         "supersecret123",
     )
     result = runner.invoke(cli, ["config", "show"])

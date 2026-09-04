@@ -12,31 +12,31 @@
 
 ## REQ-AM-001 — CLI package relocation
 
-- [ ] `git mv engagedin/cli cli` (top-level package with `__init__.py`)
-- [ ] Confirm `cli/main.py` still imports shared logic from `engagedin.*`
-- [ ] Delete the now-empty `engagedin/cli/` directory
-- [ ] Confirm `engagedin/core`, `engagedin/linkedin`, `engagedin/llm`,
+- [x] `git mv engagedin/cli cli` (top-level package with `__init__.py`)
+- [x] Confirm `cli/main.py` still imports shared logic from `engagedin.*`
+- [x] Delete the now-empty `engagedin/cli/` directory
+- [x] Confirm `engagedin/core`, `engagedin/linkedin`, `engagedin/llm`,
       `engagedin/news`, `engagedin/rules` are untouched
 
 ## REQ-AM-002 — Entry points
 
-- [ ] Add `cli/__main__.py` delegating to `cli.main:cli`
-- [ ] Delete `engagedin/__main__.py`
-- [ ] Update `[project.scripts]` to `engagedin = "cli.main:cli"`
-- [ ] Verify `uv run engagedin --help` and `uv run python -m cli --help`
+- [x] Add `cli/__main__.py` delegating to `cli.main:cli`
+- [x] Delete `engagedin/__main__.py`
+- [x] Update `[project.scripts]` to `engagedin = "cli.main:cli"`
+- [x] Verify `uv run engagedin --help` and `uv run python -m cli --help`
 
 ## REQ-AM-003 — CLI behavior parity
 
-- [ ] Verify `draft`, `post`, `headliner`, `auth login`, `auth status`,
+- [x] Verify `draft`, `post`, `headliner`, `auth login`, `auth status`,
       `rules show`, `config show` subcommands and options are unchanged
-- [ ] Diff CLI output of `--help` against pre-migration (no flag changes)
+- [x] Diff CLI output of `--help` against pre-migration (no flag changes)
 
 ## REQ-AM-004 — CLI tests migration
 
-- [ ] Update `tests/test_cli.py` imports to `from cli.main import cli`
-- [ ] Update patch targets `engagedin.cli.main.*` → `cli.main.*`
-- [ ] Update `tests/test_main.py` imports/patch targets likewise
-- [ ] Run the CLI test subset and confirm all pass unchanged
+- [x] Update `tests/test_cli.py` imports to `from cli.main import cli`
+- [x] Update patch targets `engagedin.cli.main.*` → `cli.main.*`
+- [x] Update `tests/test_main.py` imports/patch targets likewise
+- [x] Run the CLI test subset and confirm all pass unchanged
 
 ## REQ-AM-005 — Application bootstrap and health
 

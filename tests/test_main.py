@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from engagedin.__main__ import cli
+from cli.__main__ import cli
 
 
 def test_main_entry_point() -> None:
@@ -14,7 +14,7 @@ def test_main_entry_point() -> None:
         patch.object(sys, "argv", ["engagedin", "--help"]),
         pytest.raises(SystemExit),
     ):
-        runpy.run_module("engagedin", run_name="__main__")
+        runpy.run_module("cli", run_name="__main__")
 
 
 def test_main_import() -> None:
