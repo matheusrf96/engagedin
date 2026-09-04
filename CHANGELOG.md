@@ -9,15 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- FastAPI API module (`api/`) with endpoints for draft generation, post CRUD,
+  publish, and LinkedIn auth status.
+- PostgreSQL persistence for posts/drafts lifecycle (`PostRecord` model).
+- Alembic async migrations (`migrations/`).
+- Docker Compose for local PostgreSQL (`docker-compose.yml`).
+- Optional `api` extra: `pip install engagedin[api]` or `uv sync --extra api`.
+- `AGENTS.md` with code best practices (imports, early returns, service-layer
+  exceptions, decorator-based mocking).
+- 164 tests with 100% coverage across `engagedin`, `cli`, and `api`.
+
+### Changed
+
+- CLI relocated to top-level `cli/` package (was `engagedin/cli/`).
+- Console script now points to `cli.main:cli` (was `engagedin.cli.main:cli`).
+- CI installs with `--extra api`, runs mypy over `engagedin cli api`, coverage
+  over all three packages, and uses a PostgreSQL service container.
+- All test files use `@patch` decorators instead of `with patch(...)` blocks.
+- Domain exceptions (`NotFoundError`, `ConflictError`, `ExternalServiceError`)
+  live in the service layer; routers only catch service exceptions.
+
+### Breaking Changes
+
+- `python -m engagedin` no longer works; use `python -m cli` instead.
+- `engagedin/__main__.py` removed.
+
+### Added (earlier, unreleased)
+
 - Retry with exponential backoff for LinkedIn and news HTTP calls (tenacity).
 - `mypy` type checking enforced in development and CI (with `types-PyYAML` stubs).
 - `run_oauth_login()` service that encapsulates the OAuth browser flow.
 
-### Changed
+### Changed (earlier, unreleased)
 
 - HTTP status codes now use the `HTTPStatus` enum instead of raw ints.
 - OAuth login flow moved out of the CLI layer into `linkedin/auth.py`.
-- Tests use fixture-based patching instead of inline `with patch(...)` blocks.
 
 ### Fixed
 
