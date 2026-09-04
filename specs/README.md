@@ -10,3 +10,4 @@ Spec-first contract for engagedin features. Each folder contains:
 |---------|--------|
 | [uv-migration](./uv-migration/) | Spec written — not implemented |
 | [api-module](./api-module/) | Spec written — not implemented |
+| [test-infrastructure](./test-infrastructure/) | Spec written — not implemented |
