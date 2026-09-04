@@ -11,6 +11,8 @@ from api.schemas import PostListResponse
 from engagedin.core.engine import Engine
 from engagedin.core.models import GeneratedDraft
 from engagedin.linkedin.client import LinkedInError
+from engagedin.llm.client import LLMConfigError
+from engagedin.news.client import NewsError
 
 
 class NotFoundError(Exception):
@@ -21,20 +23,37 @@ class ConflictError(Exception):
     pass
 
 
+class ExternalServiceError(Exception):
+    """Raised when an external call (LLM, LinkedIn, news) fails."""
+
+    def __init__(self, message: str, *, status_code: int = 502) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class PostService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    async def _generate(
+        self, topic: str, source: DraftSource, days: int
+    ) -> GeneratedDraft:
+        engine = Engine()
+        if source is DraftSource.HEADLINER:
+            return await asyncio.to_thread(
+                engine.generate_headliner_draft, topic=topic, days=days
+            )
+        return await asyncio.to_thread(engine.generate_draft, topic)
+
     async def create_draft(
         self, topic: str, source: DraftSource, days: int
     ) -> PostRecord:
-        engine = Engine()
-        if source is DraftSource.HEADLINER:
-            draft = await asyncio.to_thread(
-                engine.generate_headliner_draft, topic=topic, days=days
-            )
-        else:
-            draft = await asyncio.to_thread(engine.generate_draft, topic)
+        try:
+            draft = await self._generate(topic, source, days)
+        except LLMConfigError as e:
+            raise ExternalServiceError(str(e), status_code=400) from e
+        except NewsError as e:
+            raise ExternalServiceError(str(e)) from e
 
         record = PostRecord(
             topic=topic,
@@ -68,6 +87,7 @@ class PostService:
         if status is not None:
             stmt = stmt.where(PostRecord.status == status)
             count_stmt = count_stmt.where(PostRecord.status == status)
+
         if topic is not None:
             stmt = stmt.where(PostRecord.topic.ilike(f"%{topic}%"))
             count_stmt = count_stmt.where(PostRecord.topic.ilike(f"%{topic}%"))
@@ -117,7 +137,7 @@ class PostService:
             record.error = str(e)
             await self.session.commit()
             await self.session.refresh(record)
-            raise
+            raise ExternalServiceError(str(e)) from e
 
         record.linkedin_post_urn = post_urn
         record.status = PostStatus.PUBLISHED
