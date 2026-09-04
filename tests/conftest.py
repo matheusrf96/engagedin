@@ -16,7 +16,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
-from api.database import Base, get_session
+from api.database import Base
+from api.dependencies import get_session
 from api.main import create_app
 
 
