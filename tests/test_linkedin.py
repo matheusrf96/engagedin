@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -10,24 +9,7 @@ from engagedin.core.models import Post
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
 
 
-@pytest.fixture
-def mock_linkedin_settings() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.linkedin.client.settings") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_httpx_post() -> Generator[MagicMock, None, None]:
-    with patch("httpx.post") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_httpx_get() -> Generator[MagicMock, None, None]:
-    with patch("httpx.get") as m:
-        yield m
-
-
+@patch("engagedin.linkedin.client.settings")
 def test_init_without_token_raises(
     mock_linkedin_settings: MagicMock,
 ) -> None:
@@ -41,6 +23,8 @@ def test_init_with_explicit_token() -> None:
     assert client.access_token == "explicit-token"
 
 
+@patch("httpx.post")
+@patch("engagedin.linkedin.client.settings")
 def test_create_post_success(
     mock_linkedin_settings: MagicMock,
     mock_httpx_post: MagicMock,
@@ -59,6 +43,8 @@ def test_create_post_success(
     mock_httpx_post.assert_called_once()
 
 
+@patch("httpx.post")
+@patch("engagedin.linkedin.client.settings")
 def test_create_post_api_error(
     mock_linkedin_settings: MagicMock,
     mock_httpx_post: MagicMock,
@@ -76,6 +62,8 @@ def test_create_post_api_error(
         client.create_post(post)
 
 
+@patch("httpx.post")
+@patch("engagedin.linkedin.client.settings")
 def test_create_post_retries_on_transport_error(
     mock_linkedin_settings: MagicMock,
     mock_httpx_post: MagicMock,
@@ -97,6 +85,8 @@ def test_create_post_retries_on_transport_error(
     assert mock_httpx_post.call_count == 2
 
 
+@patch("httpx.post")
+@patch("engagedin.linkedin.client.settings")
 def test_create_post_does_not_retry_mid_response_errors(
     mock_linkedin_settings: MagicMock,
     mock_httpx_post: MagicMock,
@@ -113,6 +103,8 @@ def test_create_post_does_not_retry_mid_response_errors(
     mock_httpx_post.assert_called_once()
 
 
+@patch("httpx.post")
+@patch("engagedin.linkedin.client.settings")
 def test_create_post_transport_error_wrapped(
     mock_linkedin_settings: MagicMock,
     mock_httpx_post: MagicMock,
@@ -129,6 +121,8 @@ def test_create_post_transport_error_wrapped(
     assert mock_httpx_post.call_count == 3
 
 
+@patch("httpx.post")
+@patch("engagedin.linkedin.client.settings")
 def test_create_post_missing_urn(
     mock_linkedin_settings: MagicMock,
     mock_httpx_post: MagicMock,
@@ -146,6 +140,8 @@ def test_create_post_missing_urn(
         client.create_post(post)
 
 
+@patch("httpx.get")
+@patch("engagedin.linkedin.client.settings")
 def test_get_user_info(
     mock_linkedin_settings: MagicMock,
     mock_httpx_get: MagicMock,
@@ -163,6 +159,8 @@ def test_get_user_info(
     mock_httpx_get.assert_called_once()
 
 
+@patch("httpx.get")
+@patch("engagedin.linkedin.client.settings")
 def test_get_user_info_http_error_wrapped(
     mock_linkedin_settings: MagicMock,
     mock_httpx_get: MagicMock,
@@ -182,6 +180,8 @@ def test_get_user_info_http_error_wrapped(
         client.get_user_info()
 
 
+@patch("httpx.get")
+@patch("engagedin.linkedin.client.settings")
 def test_get_user_info_http_error(
     mock_linkedin_settings: MagicMock,
     mock_httpx_get: MagicMock,
@@ -202,6 +202,8 @@ def test_get_user_info_http_error(
         client.get_user_info()
 
 
+@patch("httpx.get")
+@patch("engagedin.linkedin.client.settings")
 def test_get_user_info_transport_error_wrapped(
     mock_linkedin_settings: MagicMock,
     mock_httpx_get: MagicMock,

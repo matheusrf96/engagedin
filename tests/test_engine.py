@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Generator
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -12,12 +11,6 @@ from engagedin.linkedin.client import LinkedInClient, LinkedInError
 from engagedin.llm.client import LLMClient
 from engagedin.news.client import NewsClient, NewsError
 from engagedin.news.models import NewsArticle
-
-
-@pytest.fixture
-def mock_engine_settings() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.core.engine.settings") as m:
-        yield m
 
 
 def test_generate_draft() -> None:
@@ -36,6 +29,7 @@ def test_generate_draft() -> None:
     assert draft.character_count == len("Test post content")
 
 
+@patch("engagedin.core.engine.settings")
 def test_publish_draft_with_urn(
     mock_engine_settings: MagicMock,
 ) -> None:
