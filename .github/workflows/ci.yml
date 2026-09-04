@@ -8,10 +8,26 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: engagedin
+          POSTGRES_PASSWORD: engagedin
+          POSTGRES_DB: engagedin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
+    env:
+      DATABASE_URL: postgresql+asyncpg://engagedin:engagedin@localhost:5432/engagedin_test
     steps:
       - uses: actions/checkout@v4
       - name: Install uv and set up Python
@@ -19,10 +35,12 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --frozen
+      - run: uv sync --frozen --extra api
       - name: Lint
         run: uv run ruff check .
       - name: Type check
-        run: uv run mypy engagedin
+        run: uv run mypy engagedin cli api
+      - name: Run migrations
+        run: uv run alembic upgrade head
       - name: Test with coverage gate
-        run: uv run pytest --cov=engagedin --cov-fail-under=100 -q
+        run: uv run pytest --cov=engagedin --cov=cli --cov=api --cov-fail-under=100 -q
