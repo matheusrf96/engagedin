@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: engagedin
+      POSTGRES_PASSWORD: engagedin
+      POSTGRES_DB: engagedin_test
+    ports:
+      - "5433:5432"
+    volumes:
+      - engagedin_pgdata_test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engagedin -d engagedin_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  engagedin_pgdata_test:
