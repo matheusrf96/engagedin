@@ -25,7 +25,13 @@ async def list_posts(
     session: AsyncSession = Depends(get_session),
 ) -> PostListResponse:
     service = PostService(session)
-    return await service.list(status=status, topic=topic, limit=limit, offset=offset)
+    items, total = await service.list(
+        status=status, topic=topic, limit=limit, offset=offset
+    )
+    return PostListResponse(
+        items=[PostOut.model_validate(r) for r in items],
+        total=total,
+    )
 
 
 @router.get("/{post_id}", response_model=PostOut)

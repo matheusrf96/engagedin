@@ -73,9 +73,9 @@ async def test_list_returns_items() -> None:
     session = AsyncMock()
     session.execute = AsyncMock(side_effect=[mock_result, count_result])
     service = PostService(session)
-    result = await service.list()
-    assert result.total == 1
-    assert len(result.items) == 1
+    items, total = await service.list()
+    assert total == 1
+    assert len(items) == 1
 
 
 async def test_list_with_status_filter() -> None:
@@ -88,8 +88,8 @@ async def test_list_with_status_filter() -> None:
     session = AsyncMock()
     session.execute = AsyncMock(side_effect=[mock_result, count_result])
     service = PostService(session)
-    result = await service.list(status=PostStatus.DRAFT)
-    assert result.total == 1
+    items, total = await service.list(status=PostStatus.DRAFT)
+    assert total == 1
 
 
 async def test_list_with_topic_filter() -> None:
@@ -102,8 +102,8 @@ async def test_list_with_topic_filter() -> None:
     session = AsyncMock()
     session.execute = AsyncMock(side_effect=[mock_result, count_result])
     service = PostService(session)
-    result = await service.list(topic="python")
-    assert result.total == 1
+    items, total = await service.list(topic="python")
+    assert total == 1
 
 
 @patch("api.services.posts.Engine")

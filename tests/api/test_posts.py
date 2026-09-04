@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import AsyncClient
 
 from api.models import DraftSource, PostStatus
-from api.schemas import PostListResponse
 from api.services.posts import ConflictError, ExternalServiceError, NotFoundError
 
 
@@ -40,9 +39,7 @@ def _mock_record(
 @patch("api.routers.posts.PostService")
 async def test_list_posts(mock_cls: MagicMock, client: AsyncClient) -> None:
     record = _mock_record()
-    mock_cls.return_value.list = AsyncMock(
-        return_value=PostListResponse(items=[record], total=1)
-    )
+    mock_cls.return_value.list = AsyncMock(return_value=([record], 1))
     response = await client.get("/api/v1/posts")
     assert response.status_code == 200
     data = response.json()
@@ -52,9 +49,7 @@ async def test_list_posts(mock_cls: MagicMock, client: AsyncClient) -> None:
 
 @patch("api.routers.posts.PostService")
 async def test_list_posts_with_filters(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.list = AsyncMock(
-        return_value=PostListResponse(items=[], total=0)
-    )
+    mock_cls.return_value.list = AsyncMock(return_value=([], 0))
     response = await client.get(
         "/api/v1/posts", params={"status": "draft", "topic": "py", "limit": 10}
     )

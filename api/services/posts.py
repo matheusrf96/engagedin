@@ -7,7 +7,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models import DraftSource, PostRecord, PostStatus
-from api.schemas import PostListResponse
 from engagedin.core.engine import Engine
 from engagedin.core.models import GeneratedDraft
 from engagedin.linkedin.client import LinkedInError
@@ -80,7 +79,7 @@ class PostService:
         topic: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> PostListResponse:
+    ) -> tuple[list[PostRecord], int]:
         stmt = select(PostRecord)
         count_stmt = select(func.count(PostRecord.id))
 
@@ -102,7 +101,7 @@ class PostService:
         count_result = await self.session.execute(count_stmt)
         total = count_result.scalar_one()
 
-        return PostListResponse(items=items, total=total)
+        return items, total
 
     async def update_content(self, post_id: int, content: str) -> PostRecord:
         record = await self.get(post_id)
