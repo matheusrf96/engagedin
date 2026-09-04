@@ -31,6 +31,9 @@ You are the test agent for the **engagedin** project — an AI-powered LinkedIn 
 
 ## Mocking patterns
 
+- **`@patch` decorators over `with patch(...)` blocks.** Use `@patch("target")` on test functions; the mock is passed as a positional argument. This keeps test bodies clean.
+- **Mock at the boundary.** Mock the service class in router tests, not internal implementation details.
+- **AsyncMock for async calls.** Always use `AsyncMock` for `async def` methods; use `MagicMock` for sync attributes and return values.
 - **HTTP**: `pytest.fixture` wrapping `patch("httpx.get")` / `patch("httpx.post")`.
 - **LLM calls**: `pytest.fixture` wrapping `patch("engagedin.llm.client.completion")`.
 - **File I/O / env**: Use `monkeypatch.setenv` and `monkeypatch.setattr`; avoid touching real filesystem in unit tests.

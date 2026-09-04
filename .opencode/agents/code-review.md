@@ -28,3 +28,13 @@ You are a code review agent for the **engagedin** project.
 - `engagedin/linkedin/` — LinkedIn API client + OAuth flow.
 - `engagedin/llm/` — LLM client wrapper + prompt templates.
 - `engagedin/rules/` — YAML rules loader + defaults.
+- `api/` — FastAPI app, routers, services, schemas, database layer.
+- `cli/` — Top-level CLI package (imported as `cli.main`).
+
+## Code conventions (from AGENTS.md)
+
+- **No mid-file imports.** All imports at the top of the module.
+- **Early returns over if/else.** Use guard clauses for error/edge cases; avoid nested happy-path logic.
+- **Domain exceptions in service layer.** Services raise `NotFoundError`, `ConflictError`, `ExternalServiceError`. Routers catch service exceptions and map to HTTP status codes. Routers never import `LinkedInError`, `LLMConfigError`, or `NewsError` directly.
+- **`@patch` decorators, not `with patch(...)` blocks.** Use decorators on test functions; mock at the boundary (service class in router tests).
+- **AsyncMock for async calls.** Always use `AsyncMock` for `async def` methods.
