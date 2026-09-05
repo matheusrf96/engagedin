@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
-from engagedin.cli.main import cli
+from cli.main import cli
 from engagedin.core.models import GeneratedDraft
 from engagedin.linkedin.auth import OAuthError
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
@@ -17,36 +16,6 @@ from engagedin.news.client import NewsError
 @pytest.fixture
 def runner() -> CliRunner:
     return CliRunner()
-
-
-@pytest.fixture
-def mock_linkedin_client_cls() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.LinkedInClient") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_engine_cls() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.Engine") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_settings() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.settings") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_run_oauth_login() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.run_oauth_login") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_save_env() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.cli.main.save_env_values") as m:
-        yield m
 
 
 def _mock_engine(advisory: str | None = None) -> MagicMock:
@@ -67,8 +36,9 @@ def test_auth_login_missing_creds(runner: CliRunner) -> None:
     assert "LINKEDIN_CLIENT_ID" in result.output
 
 
+@patch("cli.main.LinkedInClient")
 def test_auth_status_unauthenticated(
-    runner: CliRunner, mock_linkedin_client_cls: MagicMock
+    mock_linkedin_client_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_linkedin_client_cls.side_effect = LinkedInError(
         "No LinkedIn access token available. "
@@ -79,8 +49,9 @@ def test_auth_status_unauthenticated(
     assert result.exception is not None
 
 
+@patch("cli.main.LinkedInClient")
 def test_auth_status_token_expired(
-    runner: CliRunner, mock_linkedin_client_cls: MagicMock
+    mock_linkedin_client_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_client = MagicMock(spec=LinkedInClient)
     mock_client.get_user_info.side_effect = Exception("Token expired")
@@ -90,8 +61,9 @@ def test_auth_status_token_expired(
     assert "Not authenticated" in result.output
 
 
+@patch("cli.main.LinkedInClient")
 def test_auth_status_authenticated(
-    runner: CliRunner, mock_linkedin_client_cls: MagicMock
+    mock_linkedin_client_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_client = MagicMock(spec=LinkedInClient)
     mock_client.get_user_info.return_value = {
@@ -105,7 +77,8 @@ def test_auth_status_authenticated(
     assert "John Doe" in result.output
 
 
-def test_draft(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
+@patch("cli.main.Engine")
+def test_draft(mock_engine_cls: MagicMock, runner: CliRunner) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Test draft content",
@@ -118,7 +91,8 @@ def test_draft(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
     assert "18 chars" in result.output
 
 
-def test_draft_with_rules(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
+@patch("cli.main.Engine")
+def test_draft_with_rules(mock_engine_cls: MagicMock, runner: CliRunner) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Custom rules draft",
@@ -132,8 +106,9 @@ def test_draft_with_rules(runner: CliRunner, mock_engine_cls: MagicMock) -> None
     assert "Custom rules draft" in result.output
 
 
+@patch("cli.main.Engine")
 def test_draft_generation_error(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.side_effect = LLMConfigError("LLM_API_KEY is not set")
@@ -150,7 +125,8 @@ def test_draft_missing_llm_key(runner: CliRunner) -> None:
     assert "LLM_API_KEY is not set" in result.output
 
 
-def test_post_yes_flag(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
+@patch("cli.main.Engine")
+def test_post_yes_flag(mock_engine_cls: MagicMock, runner: CliRunner) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Post content",
@@ -165,7 +141,8 @@ def test_post_yes_flag(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
     assert "urn:li:share:12345" in result.output
 
 
-def test_post_cancelled(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
+@patch("cli.main.Engine")
+def test_post_cancelled(mock_engine_cls: MagicMock, runner: CliRunner) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Post content",
@@ -177,7 +154,8 @@ def test_post_cancelled(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
     assert "Cancelled" in result.output
 
 
-def test_post_short_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
+@patch("cli.main.Engine")
+def test_post_short_warning(mock_engine_cls: MagicMock, runner: CliRunner) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="Hi",
@@ -188,7 +166,8 @@ def test_post_short_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> No
     assert "very short" in result.output
 
 
-def test_post_long_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> None:
+@patch("cli.main.Engine")
+def test_post_long_warning(mock_engine_cls: MagicMock, runner: CliRunner) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
         content="A" * 3001,
@@ -199,8 +178,9 @@ def test_post_long_warning(runner: CliRunner, mock_engine_cls: MagicMock) -> Non
     assert "exceeds 3000" in result.output
 
 
+@patch("cli.main.Engine")
 def test_post_schedule_advisory(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine(advisory="Not in a best posting window (7-9).")
     mock_engine.generate_draft.return_value = GeneratedDraft(
@@ -213,8 +193,9 @@ def test_post_schedule_advisory(
     assert "Not in a best posting window (7-9)." in result.output
 
 
+@patch("cli.main.Engine")
 def test_post_generation_error(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.side_effect = LLMConfigError("LLM_API_KEY is not set")
@@ -224,8 +205,9 @@ def test_post_generation_error(
     assert "Could not generate the post" in result.output
 
 
+@patch("cli.main.Engine")
 def test_post_publish_error(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_draft.return_value = GeneratedDraft(
@@ -256,7 +238,7 @@ def test_config_show(runner: CliRunner) -> None:
 
 def test_config_show_masks_secrets(runner: CliRunner, monkeypatch) -> None:
     monkeypatch.setattr(
-        "engagedin.cli.main.settings.linkedin_access_token",
+        "cli.main.settings.linkedin_access_token",
         "supersecret123",
     )
     result = runner.invoke(cli, ["config", "show"])
@@ -270,11 +252,14 @@ def _fake_run_oauth_login(on_url=None, **_):
     return ("tok_abc123", "urn:li:person:user999")
 
 
+@patch("cli.main.save_env_values")
+@patch("cli.main.run_oauth_login")
+@patch("cli.main.settings")
 def test_auth_login_success(
-    runner: CliRunner,
     mock_settings: MagicMock,
     mock_run_oauth_login: MagicMock,
     mock_save_env: MagicMock,
+    runner: CliRunner,
 ) -> None:
     mock_settings.linkedin_client_id = "test_id"
     mock_settings.linkedin_client_secret = "test_secret"
@@ -296,10 +281,12 @@ def test_auth_login_success(
     )
 
 
+@patch("cli.main.run_oauth_login")
+@patch("cli.main.settings")
 def test_auth_login_authorization_failed(
-    runner: CliRunner,
     mock_settings: MagicMock,
     mock_run_oauth_login: MagicMock,
+    runner: CliRunner,
 ) -> None:
     mock_settings.linkedin_client_id = "test_id"
     mock_settings.linkedin_client_secret = "test_secret"
@@ -312,10 +299,12 @@ def test_auth_login_authorization_failed(
     assert "Authorization failed or was cancelled" in result.output
 
 
+@patch("cli.main.run_oauth_login")
+@patch("cli.main.settings")
 def test_auth_login_no_access_token(
-    runner: CliRunner,
     mock_settings: MagicMock,
     mock_run_oauth_login: MagicMock,
+    runner: CliRunner,
 ) -> None:
     mock_settings.linkedin_client_id = "test_id"
     mock_settings.linkedin_client_secret = "test_secret"
@@ -326,8 +315,9 @@ def test_auth_login_no_access_token(
     assert "Failed to obtain access token" in result.output
 
 
+@patch("cli.main.Engine")
 def test_headliner_defaults(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
@@ -345,8 +335,9 @@ def test_headliner_defaults(
     )
 
 
+@patch("cli.main.Engine")
 def test_headliner_with_options(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
@@ -365,8 +356,9 @@ def test_headliner_with_options(
     )
 
 
+@patch("cli.main.Engine")
 def test_headliner_cancelled(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
@@ -380,8 +372,9 @@ def test_headliner_cancelled(
     assert "Cancelled" in result.output
 
 
+@patch("cli.main.Engine")
 def test_headliner_short_warning(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
@@ -394,8 +387,9 @@ def test_headliner_short_warning(
     assert "very short" in result.output
 
 
+@patch("cli.main.Engine")
 def test_headliner_long_warning(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
@@ -408,8 +402,9 @@ def test_headliner_long_warning(
     assert "exceeds 3000" in result.output
 
 
+@patch("cli.main.Engine")
 def test_headliner_generation_error(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.side_effect = NewsError("No news found")
@@ -421,8 +416,9 @@ def test_headliner_generation_error(
     assert "No news found" in result.output
 
 
+@patch("cli.main.Engine")
 def test_headliner_schedule_advisory(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine(advisory="Not in a best posting window (7-9).")
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
@@ -436,8 +432,9 @@ def test_headliner_schedule_advisory(
     assert "Not in a best posting window (7-9)." in result.output
 
 
+@patch("cli.main.Engine")
 def test_headliner_publish_error(
-    runner: CliRunner, mock_engine_cls: MagicMock
+    mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
     mock_engine = _mock_engine()
     mock_engine.generate_headliner_draft.return_value = GeneratedDraft(

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Generator
 from functools import partial
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 from authlib.oauth2.rfc6749 import OAuth2Token
+from authlib.oauth2.rfc6749.errors import InvalidGrantError
 
 from engagedin.linkedin.auth import (
     OAuthCallbackHandler,
@@ -16,54 +16,6 @@ from engagedin.linkedin.auth import (
     get_user_urn,
     run_oauth_login,
 )
-
-
-@pytest.fixture
-def mock_auth_settings() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.linkedin.auth.settings") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_oauth2client() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.linkedin.auth.OAuth2Client") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_httpx_get() -> Generator[MagicMock, None, None]:
-    with patch("httpx.get") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_callback_server() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.linkedin.auth.http.server.HTTPServer") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_webbrowser_open() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.linkedin.auth.webbrowser.open") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_build_url() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.linkedin.auth.build_authorization_url") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_exchange_token() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.linkedin.auth.exchange_code_for_token") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_get_urn() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.linkedin.auth.get_user_urn") as m:
-        yield m
 
 
 class TestOAuthCallbackHandler:
@@ -116,8 +68,9 @@ class TestOAuthCallbackHandler:
 
 
 class TestBuildAuthorizationUrl:
-    def test_build_authorization_url(self, mock_auth_settings: MagicMock) -> None:
-        mock_auth_settings.linkedin_client_id = "my_client_id"
+    @patch("engagedin.linkedin.auth.settings")
+    def test_build_authorization_url(self, mock: MagicMock) -> None:
+        mock.linkedin_client_id = "my_client_id"
         url = build_authorization_url("my_state_123")
         assert "https://www.linkedin.com/oauth/v2/authorization" in url
         assert "client_id=my_client_id" in url
@@ -127,17 +80,19 @@ class TestBuildAuthorizationUrl:
 
 
 class TestExchangeCodeForToken:
+    @patch("engagedin.linkedin.auth.OAuth2Client")
+    @patch("engagedin.linkedin.auth.settings")
     def test_exchange_code_for_token(
         self,
-        mock_auth_settings: MagicMock,
+        mock_settings: MagicMock,
         mock_oauth2client: MagicMock,
     ) -> None:
         mock_token = OAuth2Token({"access_token": "tok_123", "expires_in": 3600})
         mock_client = MagicMock()
         mock_client.fetch_token.return_value = mock_token
         mock_oauth2client.return_value = mock_client
-        mock_auth_settings.linkedin_client_id = "cid"
-        mock_auth_settings.linkedin_client_secret = "csecret"
+        mock_settings.linkedin_client_id = "cid"
+        mock_settings.linkedin_client_secret = "csecret"
 
         token = exchange_code_for_token("auth_code_xyz")
 
@@ -150,27 +105,29 @@ class TestExchangeCodeForToken:
 
 
 class TestGetUserUrn:
-    def test_get_user_urn(self, mock_httpx_get: MagicMock) -> None:
+    @patch("httpx.get")
+    def test_get_user_urn(self, mock: MagicMock) -> None:
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.json.return_value = {"sub": "user789"}
-        mock_httpx_get.return_value = mock_response
+        mock.return_value = mock_response
 
         urn = get_user_urn("token_abc")
 
         assert urn == "urn:li:person:user789"
-        mock_httpx_get.assert_called_once_with(
+        mock.assert_called_once_with(
             "https://api.linkedin.com/v2/userinfo",
             headers={"Authorization": "Bearer token_abc"},
         )
 
-    def test_get_user_urn_raises_on_http_error(self, mock_httpx_get: MagicMock) -> None:
+    @patch("httpx.get")
+    def test_get_user_urn_raises_on_http_error(self, mock: MagicMock) -> None:
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "401 Unauthorized",
             request=MagicMock(),
             response=mock_response,
         )
-        mock_httpx_get.return_value = mock_response
+        mock.return_value = mock_response
 
         with pytest.raises(httpx.HTTPStatusError):
             get_user_urn("bad_token")
@@ -181,6 +138,11 @@ def _grant_authorization_code(code: str | None) -> None:
 
 
 class TestRunOAuthLogin:
+    @patch("engagedin.linkedin.auth.get_user_urn")
+    @patch("engagedin.linkedin.auth.exchange_code_for_token")
+    @patch("engagedin.linkedin.auth.webbrowser.open")
+    @patch("engagedin.linkedin.auth.http.server.HTTPServer")
+    @patch("engagedin.linkedin.auth.build_authorization_url")
     def test_success(
         self,
         mock_build_url: MagicMock,
@@ -206,6 +168,11 @@ class TestRunOAuthLogin:
         mock_get_urn.assert_called_once_with("tok_1")
         mock_server.server_close.assert_called_once()
 
+    @patch("engagedin.linkedin.auth.get_user_urn")
+    @patch("engagedin.linkedin.auth.exchange_code_for_token")
+    @patch("engagedin.linkedin.auth.webbrowser.open")
+    @patch("engagedin.linkedin.auth.http.server.HTTPServer")
+    @patch("engagedin.linkedin.auth.build_authorization_url")
     def test_on_url_callback(
         self,
         mock_build_url: MagicMock,
@@ -226,6 +193,9 @@ class TestRunOAuthLogin:
 
         assert received == ["http://dummy.url/auth"]
 
+    @patch("engagedin.linkedin.auth.webbrowser.open")
+    @patch("engagedin.linkedin.auth.http.server.HTTPServer")
+    @patch("engagedin.linkedin.auth.build_authorization_url")
     def test_no_code_raises(
         self,
         mock_build_url: MagicMock,
@@ -239,6 +209,10 @@ class TestRunOAuthLogin:
         with pytest.raises(OAuthError, match="Authorization failed or was cancelled"):
             run_oauth_login()
 
+    @patch("engagedin.linkedin.auth.exchange_code_for_token")
+    @patch("engagedin.linkedin.auth.webbrowser.open")
+    @patch("engagedin.linkedin.auth.http.server.HTTPServer")
+    @patch("engagedin.linkedin.auth.build_authorization_url")
     def test_empty_token_raises(
         self,
         mock_build_url: MagicMock,
@@ -255,6 +229,10 @@ class TestRunOAuthLogin:
         with pytest.raises(OAuthError, match="Failed to obtain access token"):
             run_oauth_login()
 
+    @patch("engagedin.linkedin.auth.exchange_code_for_token")
+    @patch("engagedin.linkedin.auth.webbrowser.open")
+    @patch("engagedin.linkedin.auth.http.server.HTTPServer")
+    @patch("engagedin.linkedin.auth.build_authorization_url")
     def test_exchange_error_wrapped(
         self,
         mock_build_url: MagicMock,
@@ -271,6 +249,10 @@ class TestRunOAuthLogin:
         with pytest.raises(OAuthError, match="Failed to exchange the authorization code"):
             run_oauth_login()
 
+    @patch("engagedin.linkedin.auth.exchange_code_for_token")
+    @patch("engagedin.linkedin.auth.webbrowser.open")
+    @patch("engagedin.linkedin.auth.http.server.HTTPServer")
+    @patch("engagedin.linkedin.auth.build_authorization_url")
     def test_exchange_oauth2_error_wrapped(
         self,
         mock_build_url: MagicMock,
@@ -278,8 +260,6 @@ class TestRunOAuthLogin:
         mock_webbrowser_open: MagicMock,
         mock_exchange_token: MagicMock,
     ) -> None:
-        from authlib.oauth2.rfc6749.errors import InvalidGrantError
-
         mock_build_url.return_value = "http://dummy.url/auth"
         mock_exchange_token.side_effect = InvalidGrantError()
         mock_server = MagicMock()
@@ -289,6 +269,11 @@ class TestRunOAuthLogin:
         with pytest.raises(OAuthError, match="Failed to exchange the authorization code"):
             run_oauth_login()
 
+    @patch("engagedin.linkedin.auth.get_user_urn")
+    @patch("engagedin.linkedin.auth.exchange_code_for_token")
+    @patch("engagedin.linkedin.auth.webbrowser.open")
+    @patch("engagedin.linkedin.auth.http.server.HTTPServer")
+    @patch("engagedin.linkedin.auth.build_authorization_url")
     def test_profile_fetch_error_wrapped(
         self,
         mock_build_url: MagicMock,

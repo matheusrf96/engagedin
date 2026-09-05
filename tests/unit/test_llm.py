@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,21 +8,11 @@ from engagedin.core.models import PostRuleset
 from engagedin.llm.client import LLMClient, LLMConfigError
 
 
-@pytest.fixture
-def mock_llm_settings() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.llm.client.settings") as m:
-        yield m
-
-
-@pytest.fixture
-def mock_completion_fn() -> Generator[MagicMock, None, None]:
-    with patch("engagedin.llm.client.completion") as m:
-        yield m
-
-
+@patch("engagedin.llm.client.settings")
+@patch("engagedin.llm.client.completion")
 def test_generate_post(
-    mock_llm_settings: MagicMock,
     mock_completion_fn: MagicMock,
+    mock_llm_settings: MagicMock,
 ) -> None:
     mock_completion = MagicMock()
     mock_completion.choices[0].message.content = "Generated post content"
@@ -46,9 +35,11 @@ def test_generate_post(
     )
 
 
+@patch("engagedin.llm.client.settings")
+@patch("engagedin.llm.client.completion")
 def test_generate_post_empty_response(
-    mock_llm_settings: MagicMock,
     mock_completion_fn: MagicMock,
+    mock_llm_settings: MagicMock,
 ) -> None:
     mock_completion = MagicMock()
     mock_completion.choices[0].message.content = ""
@@ -63,6 +54,7 @@ def test_generate_post_empty_response(
     assert result == ""
 
 
+@patch("engagedin.llm.client.completion")
 def test_generate_post_custom_provider(
     mock_completion_fn: MagicMock,
 ) -> None:
@@ -82,6 +74,7 @@ def test_generate_post_custom_provider(
     assert mock_completion_fn.call_args[1]["model"] == "gpt-4o"
 
 
+@patch("engagedin.llm.client.completion")
 def test_generate_post_missing_api_key(
     mock_completion_fn: MagicMock,
 ) -> None:
@@ -91,6 +84,7 @@ def test_generate_post_missing_api_key(
     mock_completion_fn.assert_not_called()
 
 
+@patch("engagedin.llm.client.completion")
 def test_generate_post_local_provider_no_key(
     mock_completion_fn: MagicMock,
 ) -> None:
@@ -105,6 +99,7 @@ def test_generate_post_local_provider_no_key(
     mock_completion_fn.assert_called_once()
 
 
+@patch("engagedin.llm.client.completion")
 def test_generate_headliner_missing_api_key(
     mock_completion_fn: MagicMock,
 ) -> None:
@@ -114,31 +109,30 @@ def test_generate_headliner_missing_api_key(
     mock_completion_fn.assert_not_called()
 
 
-def test_generate_headliner_post() -> None:
+@patch("engagedin.llm.client.settings")
+@patch("engagedin.llm.client.completion")
+def test_generate_headliner_post(
+    mock_completion_fn: MagicMock,
+    mock_settings: MagicMock,
+) -> None:
     mock_completion = MagicMock()
     mock_completion.choices[0].message.content = "Opinion post about AI news"
+    mock_completion_fn.return_value = mock_completion
+
+    mock_settings.llm_api_key = "test-key"
+    mock_settings.llm_model = "deepseek-chat"
 
     news_context = "1. AI Breakthrough\n   Source: Hacker News\n   URL: https://example.com"
 
-    with (
-        patch("engagedin.llm.client.settings") as mock_settings,
-        patch(
-            "engagedin.llm.client.completion",
-            return_value=mock_completion,
-        ) as mock_complete,
-    ):
-        mock_settings.llm_api_key = "test-key"
-        mock_settings.llm_model = "deepseek-chat"
-
-        client = LLMClient()
-        ruleset = PostRuleset(tone="opinionated")
-        result = client.generate_headliner_post(
-            "AI", news_context, ruleset, days=1
-        )
+    client = LLMClient()
+    ruleset = PostRuleset(tone="opinionated")
+    result = client.generate_headliner_post(
+        "AI", news_context, ruleset, days=1
+    )
 
     assert result == "Opinion post about AI news"
-    mock_complete.assert_called_once()
-    call_args = mock_complete.call_args[1]
+    mock_completion_fn.assert_called_once()
+    call_args = mock_completion_fn.call_args[1]
     messages = call_args["messages"]
     assert len(messages) == 2
     assert messages[0]["role"] == "system"
@@ -147,24 +141,23 @@ def test_generate_headliner_post() -> None:
     assert "AI" in messages[1]["content"]
 
 
-def test_generate_headliner_post_empty() -> None:
+@patch("engagedin.llm.client.settings")
+@patch("engagedin.llm.client.completion")
+def test_generate_headliner_post_empty(
+    mock_completion_fn: MagicMock,
+    mock_settings: MagicMock,
+) -> None:
     mock_completion = MagicMock()
     mock_completion.choices[0].message.content = ""
+    mock_completion_fn.return_value = mock_completion
 
-    with (
-        patch("engagedin.llm.client.settings") as mock_settings,
-        patch(
-            "engagedin.llm.client.completion",
-            return_value=mock_completion,
-        ),
-    ):
-        mock_settings.llm_api_key = "test-key"
-        mock_settings.llm_model = "deepseek-chat"
+    mock_settings.llm_api_key = "test-key"
+    mock_settings.llm_model = "deepseek-chat"
 
-        client = LLMClient()
-        ruleset = PostRuleset()
-        result = client.generate_headliner_post(
-            "tech", "1. News item", ruleset, days=3
-        )
+    client = LLMClient()
+    ruleset = PostRuleset()
+    result = client.generate_headliner_post(
+        "tech", "1. News item", ruleset, days=3
+    )
 
     assert result == ""

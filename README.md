@@ -112,27 +112,35 @@ templates:
 
 ```
 engagedin/
-├── engagedin/
-│   ├── cli/main.py        # Click CLI (7 commands)
-│   ├── core/
-│   │   ├── config.py      # pydantic-settings
-│   │   ├── engine.py      # Orchestrator
-│   │   ├── env.py         # .env read/write helpers
-│   │   ├── models.py      # Pydantic models
-│   │   └── schedule.py    # Best-time posting logic
-│   ├── linkedin/
-│   │   ├── auth.py        # OAuth 2.0 flow + callback handler
-│   │   └── client.py      # httpx API client
-│   ├── llm/
-│   │   ├── client.py      # LiteLLM wrapper
-│   │   └── prompts.py     # Prompt templates
-│   ├── news/
-│   │   ├── client.py      # Hacker News / NewsAPI client
-│   │   └── models.py      # NewsArticle model
-│   └── rules/
-│       ├── loader.py      # YAML rules loader
-│       └── defaults.yaml  # Default ruleset
-├── tests/                 # 100+ tests, 100% coverage
+├── cli/                     # CLI package (Click)
+│   ├── __main__.py
+│   └── main.py
+├── api/                     # FastAPI API package
+│   ├── main.py              # App factory + lifespan
+│   ├── config.py            # API settings (DATABASE_URL, etc.)
+│   ├── database.py          # Async engine, session, Base
+│   ├── models.py            # SQLAlchemy ORM (PostRecord)
+│   ├── schemas.py           # Pydantic request/response models
+│   ├── dependencies.py      # FastAPI dependency providers
+│   ├── services/
+│   │   └── posts.py         # PostService (business logic)
+│   └── routers/
+│       ├── health.py        # GET /healthz
+│       ├── generation.py    # POST /api/v1/drafts
+│       ├── posts.py         # CRUD + publish
+│       └── auth.py          # GET /api/v1/auth/status
+├── engagedin/               # Shared core logic
+│   ├── core/                # Config, engine, models, schedule, env
+│   ├── linkedin/            # LinkedIn API client + OAuth
+│   ├── llm/                 # LiteLLM wrapper + prompts
+│   ├── news/                # Hacker News / NewsAPI client
+│   └── rules/               # YAML rules loader
+├── migrations/              # Alembic async migrations
+├── tests/
+│   ├── api/                 # API endpoint tests
+│   └── ...                  # CLI, engine, service tests
+├── docker-compose.yml       # PostgreSQL for local dev
+├── alembic.ini              # Alembic config
 ├── .env.example
 └── pyproject.toml
 ```
@@ -140,10 +148,51 @@ engagedin/
 ## Development
 
 ```bash
-uv sync
-uv run pytest --cov=engagedin
+uv sync --extra api
+uv run pytest --cov=engagedin --cov=cli --cov=api
 uv run ruff check .
-uv run mypy engagedin
+uv run mypy engagedin cli api
+```
+
+## API Module
+
+engagedin includes an optional FastAPI API for HTTP-based post generation and management, backed by PostgreSQL.
+
+### Setup
+
+```bash
+# Install with API extras
+uv sync --extra api
+
+# Start PostgreSQL
+docker compose up -d
+
+# Apply migrations
+uv run alembic upgrade head
+
+# Run the API server
+uv run uvicorn api.main:app --reload
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/healthz` | Health check (DB ping) |
+| `POST` | `/api/v1/drafts` | Generate a draft post |
+| `GET` | `/api/v1/posts` | List posts (filter by `status`, `topic`) |
+| `GET` | `/api/v1/posts/{id}` | Get a post |
+| `PATCH` | `/api/v1/posts/{id}` | Update draft content |
+| `POST` | `/api/v1/posts/{id}/publish` | Publish to LinkedIn |
+| `DELETE` | `/api/v1/posts/{id}` | Delete a post |
+| `GET` | `/api/v1/auth/status` | Check LinkedIn auth |
+
+### Example: generate a draft
+
+```bash
+curl -X POST http://localhost:8000/api/v1/drafts \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "Python async patterns"}'
 ```
 
 ## License
