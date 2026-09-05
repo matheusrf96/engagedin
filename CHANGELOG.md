@@ -28,9 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All test files use `@patch` decorators instead of `with patch(...)` blocks.
 - Domain exceptions (`NotFoundError`, `ConflictError`, `ExternalServiceError`)
   live in the service layer; routers only catch service exceptions.
+- CI matrix reduced to Python 3.14 only; the publish workflow builds on 3.14.
 
 ### Breaking Changes
 
+- Minimum supported Python is now 3.14 (`requires-python = ">=3.14"`); pip
+  installs on older interpreters must stay on 0.3.x.
 - `python -m engagedin` no longer works; use `python -m cli` instead.
 - `engagedin/__main__.py` removed.
 

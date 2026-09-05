@@ -17,7 +17,7 @@ AI-powered LinkedIn content generator. Write and publish LinkedIn posts using an
 ## Installation
 
 ```bash
-# Requirements: Python 3.12+ and uv
+# Requirements: Python 3.14+ and uv
 pip install uv
 git clone git@github.com:matheusrf96/engagedin.git
 cd engagedin

@@ -11,7 +11,7 @@ You are a code review agent for the **engagedin** project.
 ## Review checklist
 
 1. **Ruff compliance** — run `uv run ruff check .` and ensure zero violations.
-2. **Python version** — target is 3.12+. Use modern idioms (e.g. `str.removeprefix`, `Path` over `os.path`, type-union syntax `X | Y`).
+2. **Python version** — target is 3.14+. Use modern idioms (e.g. `str.removeprefix`, `Path` over `os.path`, type-union syntax `X | Y`).
 3. **Type hints** — apply type hints on all public functions. Use `pydantic` models for data shapes.
 4. **Imports** — ruff rule `I` enforces import ordering. Run `uv run ruff check --fix .` to auto-sort.
 5. **Line length** — hard limit 100 characters (enforced by ruff).

@@ -65,6 +65,6 @@ async def test_get_post(client: AsyncClient) -> None:
 ## Style
 
 - **Line length**: 100 characters (ruff enforced).
-- **Python 3.12+**: use `X | Y` union syntax, `str.removeprefix`, `datetime.UTC`, `from __future__ import annotations`.
+- **Python 3.14+**: use `X | Y` union syntax, `str.removeprefix`, `datetime.UTC`, `from __future__ import annotations`.
 - **Ruff rule sets**: E, F, I, N, W, UP. Run `uv run ruff check --fix .` to auto-fix import ordering.
 - **Mypy**: `disallow_untyped_defs = true`. All public functions must have full type annotations.
