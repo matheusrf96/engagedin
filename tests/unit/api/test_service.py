@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from api.exceptions import ExternalServiceError
 from api.models import DraftSource, PostStatus
 from api.services.posts import (
     ConflictError,
-    ExternalServiceError,
     NotFoundError,
     PostService,
 )

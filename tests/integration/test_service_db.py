@@ -6,11 +6,11 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.exceptions import ExternalServiceError
 from api.models import DraftSource, PostRecord, PostStatus
 from api.repositories.posts import PostRepository
 from api.services.posts import (
     ConflictError,
-    ExternalServiceError,
     NotFoundError,
     PostService,
 )

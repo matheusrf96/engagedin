@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from api.exceptions import ExternalServiceError
 from api.schemas import AuthStatusResponse
 from api.services.auth import AuthService
-from api.services.posts import ExternalServiceError
 
 router = APIRouter(prefix="/auth")
 

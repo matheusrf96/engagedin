@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from httpx import AsyncClient
 
-from api.services.posts import ExternalServiceError
+from api.exceptions import ExternalServiceError
 
 
 @patch("api.routers.auth.AuthService")
