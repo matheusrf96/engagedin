@@ -7,7 +7,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from api.database import Base, get_session
+from api.database import Base
+from api.dependencies import get_session
 from api.main import app
 
 _REFERENCE_TABLES: set[str] = set()
