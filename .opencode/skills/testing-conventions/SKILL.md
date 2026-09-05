@@ -64,7 +64,7 @@ def test_something(mock_settings):
     ...
 ```
 
-This keeps test bodies free of indentation for patching and avoids signature issues with `@patch` in Python 3.12+.
+This keeps test bodies free of indentation for patching and avoids signature issues with `@patch` in Python 3.14+.
 
 ## Mocking
 

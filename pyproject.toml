@@ -1,11 +1,11 @@
 [project]
 name = "engagedin"
-version = "0.3.0"
+version = "0.4.0"
 description = "AI-powered LinkedIn content generator"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Matheus" }]
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 keywords = [
     "linkedin",
     "content",
@@ -21,8 +21,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Communications",
     "Topic :: Internet",
@@ -70,7 +68,7 @@ engagedin = ["rules/*.yaml"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
@@ -82,7 +80,7 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 check_untyped_defs = true
 disallow_untyped_calls = true
 disallow_untyped_defs = true

@@ -13,6 +13,15 @@ class PostRepository:
     async def get(self, post_id: int) -> PostRecord | None:
         return await self.session.get(PostRecord, post_id)
 
+    async def get_for_update(self, post_id: int) -> PostRecord | None:
+        stmt = (
+            select(PostRecord)
+            .where(PostRecord.id == post_id)
+            .with_for_update()
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def list(
         self,
         *,

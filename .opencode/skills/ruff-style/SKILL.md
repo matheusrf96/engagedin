@@ -2,7 +2,7 @@
 name: ruff-style
 description: >
   Use when linting, formatting, or fixing code style in engagedin.
-  Documents the ruff configuration, enabled rule sets, and Python 3.12
+  Documents the ruff configuration, enabled rule sets, and Python 3.14
   conventions. Trigger on "ruff", "lint", "format", "style", "line length".
 ---
 
@@ -15,7 +15,7 @@ Defined in `pyproject.toml`:
 ```toml
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
@@ -30,7 +30,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 | `I` | isort (import order) |
 | `N` | pep8-naming |
 | `W` | pycodestyle warnings |
-| `UP` | pyupgrade (Python 3.12+ idioms) |
+| `UP` | pyupgrade (Python 3.14+ idioms) |
 
 ## Running
 
@@ -42,7 +42,7 @@ uv run ruff check tests/         # check only tests
 
 ruff is configured as a linter only — no formatter is active.
 
-## Python 3.12 conventions
+## Python 3.14 conventions
 
 - Type union syntax: `str | None` instead of `Optional[str]`.
 - Use `Path.read_text()` / `Path.write_text()` over `open()` where concise.

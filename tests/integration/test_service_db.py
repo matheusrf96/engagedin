@@ -6,11 +6,11 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.exceptions import ExternalServiceError
 from api.models import DraftSource, PostRecord, PostStatus
 from api.repositories.posts import PostRepository
 from api.services.posts import (
     ConflictError,
-    ExternalServiceError,
     NotFoundError,
     PostService,
 )
@@ -233,6 +233,27 @@ async def test_publish_after_failure_succeeds(
     assert result.status is PostStatus.PUBLISHED
     assert result.linkedin_post_urn == "urn:li:share:retry"
     assert result.error is None
+
+
+async def test_publish_already_published_conflicts(
+    integration_db_session: AsyncSession,
+) -> None:
+    record = PostRecord(
+        topic="dup",
+        source=DraftSource.STANDARD,
+        status=PostStatus.PUBLISHED,
+        content="Already live",
+        character_count=12,
+        linkedin_post_urn="urn:li:share:dup",
+        published_at=datetime(2026, 1, 1),
+    )
+    integration_db_session.add(record)
+    await integration_db_session.commit()
+    await integration_db_session.refresh(record)
+
+    service = PostService(PostRepository(integration_db_session))
+    with pytest.raises(ConflictError):
+        await service.publish(record.id)
 
 
 async def test_delete_removes_record(

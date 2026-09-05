@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "openapi": {
+      "command": "npx",
+      "args": ["-y", "openapi-mcp-server", "docs/openapi.json"]
+    }
+  }
+}

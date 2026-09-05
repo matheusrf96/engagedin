@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
+from api.exceptions import ExternalServiceError
 from api.models import DraftSource, PostRecord, PostStatus
 from api.repositories.posts import PostRepository
 from engagedin.core.engine import Engine
@@ -25,14 +26,6 @@ class ConflictError(Exception):
     pass
 
 
-class ExternalServiceError(Exception):
-    """Raised when an external call (LLM, LinkedIn, news) fails."""
-
-    def __init__(self, message: str, *, status_code: int = 502) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-
-
 class PostService:
     def __init__(self, repository: PostRepository) -> None:
         self.repo = repository
@@ -40,7 +33,7 @@ class PostService:
     async def _generate(
         self, topic: str, source: DraftSource, days: int
     ) -> GeneratedDraft:
-        if source is DraftSource.HEADLINER:
+        if source == DraftSource.HEADLINER:
             return await asyncio.to_thread(
                 self._generate_headliner, topic, days
             )
@@ -91,7 +84,7 @@ class PostService:
 
     async def update_content(self, post_id: int, content: str) -> PostRecord:
         record = await self.get(post_id)
-        if record.status is PostStatus.PUBLISHED:
+        if record.status == PostStatus.PUBLISHED:
             raise ConflictError(
                 f"Cannot update post {post_id}: status is published"
             )
@@ -101,8 +94,10 @@ class PostService:
         return await self.repo.update(record)
 
     async def publish(self, post_id: int) -> PostRecord:
-        record = await self.get(post_id)
-        if record.status is PostStatus.PUBLISHED:
+        record = await self.repo.get_for_update(post_id)
+        if record is None:
+            raise NotFoundError(f"Post {post_id} not found")
+        if record.status == PostStatus.PUBLISHED:
             raise ConflictError(
                 f"Cannot publish post {post_id}: status is already published"
             )

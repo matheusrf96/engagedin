@@ -22,7 +22,7 @@ async def test_database_get_session(mock_cls: MagicMock) -> None:
     assert session is mock_session
 
 
-@patch("api.dependencies.SessionLocal")
+@patch("api.database.SessionLocal")
 async def test_dependencies_get_session(mock_cls: MagicMock) -> None:
     mock_session = AsyncMock()
     mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)

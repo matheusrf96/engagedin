@@ -3,9 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_service
+from api.exceptions import ExternalServiceError
 from api.models import DraftSource
 from api.schemas import DraftCreateRequest, PostOut
-from api.services.posts import ExternalServiceError, PostService
+from api.services.posts import PostService
 
 router = APIRouter()
 

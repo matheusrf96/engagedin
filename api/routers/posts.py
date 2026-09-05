@@ -3,11 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_service
+from api.exceptions import ExternalServiceError
 from api.models import PostStatus
 from api.schemas import PostListResponse, PostOut, PostUpdateRequest
 from api.services.posts import (
     ConflictError,
-    ExternalServiceError,
     NotFoundError,
     PostService,
 )

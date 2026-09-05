@@ -55,6 +55,19 @@ async def test_get_not_found() -> None:
     assert result is None
 
 
+async def test_get_for_update_returns_record() -> None:
+    record = _mock_record()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = record
+    session = AsyncMock()
+    session.execute = AsyncMock(return_value=mock_result)
+    repo = PostRepository(session)
+    result = await repo.get_for_update(1)
+    assert result is record
+    stmt = session.execute.await_args.args[0]
+    assert stmt._for_update_arg is not None
+
+
 async def test_list_returns_items() -> None:
     record = _mock_record()
     mock_result = MagicMock()

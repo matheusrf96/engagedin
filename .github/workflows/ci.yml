@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.14"]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv and set up Python
@@ -44,3 +44,18 @@ jobs:
         run: DATABASE_URL=postgresql+asyncpg://engagedin:engagedin@localhost:5433/engagedin_test uv run alembic upgrade head
       - name: Integration tests
         run: POSTGRES_PORT=5433 uv run pytest tests/integration/ -n 4 --dist loadscope -q
+
+  openapi-check:
+    name: OpenAPI Schema Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - name: Install dependencies
+        run: uv sync --frozen --extra api
+      - name: Check OpenAPI schema drift
+        run: make openapi-check

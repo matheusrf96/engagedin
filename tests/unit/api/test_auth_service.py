@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from api.exceptions import ExternalServiceError
 from api.services.auth import AuthService
-from api.services.posts import ExternalServiceError
 from engagedin.linkedin.client import LinkedInError
 
 

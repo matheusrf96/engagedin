@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from api.services.posts import ExternalServiceError
+from api.exceptions import ExternalServiceError
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
 
 

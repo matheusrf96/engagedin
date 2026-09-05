@@ -6,9 +6,10 @@ from unittest.mock import AsyncMock, MagicMock
 from httpx import ASGITransport, AsyncClient
 
 from api.dependencies import get_service
+from api.exceptions import ExternalServiceError
 from api.main import create_app
 from api.models import DraftSource, PostStatus
-from api.services.posts import ConflictError, ExternalServiceError, NotFoundError
+from api.services.posts import ConflictError, NotFoundError
 
 
 def _mock_record(
