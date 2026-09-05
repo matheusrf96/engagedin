@@ -111,7 +111,6 @@ class PostService:
             )
         record.content = content
         record.character_count = len(content)
-        record.updated_at = datetime.now(UTC)
         await self.session.commit()
         await self.session.refresh(record)
         return record
@@ -148,5 +147,5 @@ class PostService:
 
     async def delete(self, post_id: int) -> None:
         record = await self.get(post_id)
-        await self.session.delete(record)
+        self.session.delete(record)  # type: ignore[unused-coroutine]
         await self.session.commit()

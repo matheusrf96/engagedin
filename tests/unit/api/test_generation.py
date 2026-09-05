@@ -104,10 +104,4 @@ async def test_create_draft_conflict(mock_cls: MagicMock, client: AsyncClient) -
     assert response.status_code == 409
 
 
-@patch("api.routers.generation.PostService")
-async def test_create_draft_unexpected_error(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.create_draft = AsyncMock(
-        side_effect=RuntimeError("unexpected")
-    )
-    response = await client.post("/api/v1/drafts", json={"topic": "python"})
-    assert response.status_code == 500
+

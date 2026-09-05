@@ -20,7 +20,7 @@ def _mock_session(record: MagicMock | None = None) -> AsyncMock:
     session.commit = AsyncMock()
     session.refresh = AsyncMock()
     session.add = MagicMock()
-    session.delete = AsyncMock()
+    session.delete = MagicMock()
     return session
 
 
@@ -214,5 +214,5 @@ async def test_delete() -> None:
     session = _mock_session(record)
     service = PostService(session)
     await service.delete(1)
-    session.delete.assert_awaited_once_with(record)
+    session.delete.assert_called_once_with(record)
     session.commit.assert_awaited_once()

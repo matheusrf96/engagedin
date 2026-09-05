@@ -1,4 +1,4 @@
-from __future__ import annotations
+import asyncio
 
 from fastapi import APIRouter, HTTPException
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/auth")
 async def auth_status() -> AuthStatusResponse:
     try:
         client = LinkedInClient()
-        info = client.get_user_info()
+        info = await asyncio.to_thread(client.get_user_info)
     except LinkedInError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
     return AuthStatusResponse(
