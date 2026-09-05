@@ -92,6 +92,7 @@ class PostService:
             )
         record.content = content
         record.character_count = len(content)
+        record.updated_at = datetime.now(UTC)
         return await self.repo.update(record)
 
     async def publish(self, post_id: int) -> PostRecord:
@@ -108,12 +109,14 @@ class PostService:
         except LinkedInError as e:
             record.status = PostStatus.FAILED
             record.error = str(e)
+            record.updated_at = datetime.now(UTC)
             await self.repo.update(record)
             raise ExternalServiceError(str(e)) from e
 
         record.linkedin_post_urn = post_urn
         record.status = PostStatus.PUBLISHED
         record.published_at = datetime.now(UTC)
+        record.updated_at = datetime.now(UTC)
         record.error = None
         return await self.repo.update(record)
 
