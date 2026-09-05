@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models import DraftSource, PostRecord, PostStatus
+from api.repositories.posts import PostRepository
 from api.services.posts import (
     ConflictError,
     ExternalServiceError,
@@ -26,7 +27,7 @@ async def test_create_draft_persists(
 ) -> None:
     with patch("api.services.posts.Engine") as mock_engine:
         mock_engine.return_value.generate_draft.return_value = _draft("Hello")
-        service = PostService(integration_db_session)
+        service = PostService(PostRepository(integration_db_session))
         record = await service.create_draft("python", DraftSource.STANDARD, 1)
 
     assert record.id is not None
@@ -48,7 +49,7 @@ async def test_create_draft_headliner_persists(
         mock_engine.return_value.generate_headliner_draft.return_value = _draft(
             "Headliner"
         )
-        service = PostService(integration_db_session)
+        service = PostService(PostRepository(integration_db_session))
         record = await service.create_draft("AI", DraftSource.HEADLINER, 3)
 
     assert record.source is DraftSource.HEADLINER
@@ -69,7 +70,7 @@ async def test_get_returns_record(
     await integration_db_session.commit()
     await integration_db_session.refresh(record)
 
-    service = PostService(integration_db_session)
+    service = PostService(PostRepository(integration_db_session))
     result = await service.get(record.id)
     assert result.id == record.id
     assert result.content == "Get me"
@@ -78,7 +79,7 @@ async def test_get_returns_record(
 async def test_get_unknown_raises(
     integration_db_session: AsyncSession,
 ) -> None:
-    service = PostService(integration_db_session)
+    service = PostService(PostRepository(integration_db_session))
     with pytest.raises(NotFoundError):
         await service.get(99999)
 
@@ -102,7 +103,7 @@ async def test_list_filters_by_status_and_topic(
         )
     await integration_db_session.commit()
 
-    service = PostService(integration_db_session)
+    service = PostService(PostRepository(integration_db_session))
 
     items, total = await service.list()
     assert total == 3
@@ -131,7 +132,7 @@ async def test_update_content_recomputes_count(
     await integration_db_session.commit()
     await integration_db_session.refresh(record)
 
-    service = PostService(integration_db_session)
+    service = PostService(PostRepository(integration_db_session))
     updated = await service.update_content(record.id, "new content here")
     assert updated.content == "new content here"
     assert updated.character_count == len("new content here")
@@ -153,7 +154,7 @@ async def test_update_published_conflicts(
     await integration_db_session.commit()
     await integration_db_session.refresh(record)
 
-    service = PostService(integration_db_session)
+    service = PostService(PostRepository(integration_db_session))
     with pytest.raises(ConflictError):
         await service.update_content(record.id, "new")
 
@@ -174,7 +175,7 @@ async def test_publish_success_persists_urn(
 
     with patch("api.services.posts.Engine") as mock_engine:
         mock_engine.return_value.publish_draft.return_value = "urn:li:share:abc"
-        service = PostService(integration_db_session)
+        service = PostService(PostRepository(integration_db_session))
         result = await service.publish(record.id)
 
     assert result.linkedin_post_urn == "urn:li:share:abc"
@@ -200,7 +201,7 @@ async def test_publish_failure_persists_failed(
         mock_engine.return_value.publish_draft.side_effect = LinkedInError(
             "API error"
         )
-        service = PostService(integration_db_session)
+        service = PostService(PostRepository(integration_db_session))
         with pytest.raises(ExternalServiceError):
             await service.publish(record.id)
 
@@ -226,7 +227,7 @@ async def test_publish_after_failure_succeeds(
 
     with patch("api.services.posts.Engine") as mock_engine:
         mock_engine.return_value.publish_draft.return_value = "urn:li:share:retry"
-        service = PostService(integration_db_session)
+        service = PostService(PostRepository(integration_db_session))
         result = await service.publish(record.id)
 
     assert result.status is PostStatus.PUBLISHED
@@ -248,7 +249,7 @@ async def test_delete_removes_record(
     await integration_db_session.commit()
     record_id = record.id
 
-    service = PostService(integration_db_session)
+    service = PostService(PostRepository(integration_db_session))
     await service.delete(record_id)
 
     deleted = await integration_db_session.get(PostRecord, record_id)

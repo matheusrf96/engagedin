@@ -3,10 +3,8 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from api.models import DraftSource, PostRecord, PostStatus
+from api.repositories.posts import PostRepository
 from engagedin.core.engine import Engine
 from engagedin.core.models import GeneratedDraft
 from engagedin.linkedin.client import LinkedInError
@@ -31,8 +29,8 @@ class ExternalServiceError(Exception):
 
 
 class PostService:
-    def __init__(self, session: AsyncSession) -> None:
-        self.session = session
+    def __init__(self, repository: PostRepository) -> None:
+        self.repo = repository
 
     async def _generate(
         self, topic: str, source: DraftSource, days: int
@@ -61,13 +59,10 @@ class PostService:
             content=draft.content,
             character_count=draft.character_count,
         )
-        self.session.add(record)
-        await self.session.commit()
-        await self.session.refresh(record)
-        return record
+        return await self.repo.add(record)
 
     async def get(self, post_id: int) -> PostRecord:
-        record = await self.session.get(PostRecord, post_id)
+        record = await self.repo.get(post_id)
         if record is None:
             raise NotFoundError(f"Post {post_id} not found")
         return record
@@ -80,28 +75,9 @@ class PostService:
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[PostRecord], int]:
-        stmt = select(PostRecord)
-        count_stmt = select(func.count(PostRecord.id))
-
-        if status is not None:
-            stmt = stmt.where(PostRecord.status == status)
-            count_stmt = count_stmt.where(PostRecord.status == status)
-
-        if topic is not None:
-            stmt = stmt.where(PostRecord.topic.ilike(f"%{topic}%"))
-            count_stmt = count_stmt.where(PostRecord.topic.ilike(f"%{topic}%"))
-
-        stmt = stmt.order_by(
-            PostRecord.created_at.desc(), PostRecord.id.desc()
-        ).offset(offset).limit(limit)
-
-        result = await self.session.execute(stmt)
-        items = list(result.scalars().all())
-
-        count_result = await self.session.execute(count_stmt)
-        total = count_result.scalar_one()
-
-        return items, total
+        return await self.repo.list(
+            status=status, topic=topic, limit=limit, offset=offset
+        )
 
     async def update_content(self, post_id: int, content: str) -> PostRecord:
         record = await self.get(post_id)
@@ -111,9 +87,7 @@ class PostService:
             )
         record.content = content
         record.character_count = len(content)
-        await self.session.commit()
-        await self.session.refresh(record)
-        return record
+        return await self.repo.update(record)
 
     async def publish(self, post_id: int) -> PostRecord:
         record = await self.get(post_id)
@@ -133,19 +107,15 @@ class PostService:
         except LinkedInError as e:
             record.status = PostStatus.FAILED
             record.error = str(e)
-            await self.session.commit()
-            await self.session.refresh(record)
+            await self.repo.update(record)
             raise ExternalServiceError(str(e)) from e
 
         record.linkedin_post_urn = post_urn
         record.status = PostStatus.PUBLISHED
         record.published_at = datetime.now(UTC)
         record.error = None
-        await self.session.commit()
-        await self.session.refresh(record)
-        return record
+        return await self.repo.update(record)
 
     async def delete(self, post_id: int) -> None:
         record = await self.get(post_id)
-        self.session.delete(record)  # type: ignore[unused-coroutine]
-        await self.session.commit()
+        await self.repo.delete(record)

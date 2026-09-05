@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
+from api.dependencies import get_service
+from api.main import create_app
 from api.models import DraftSource, PostStatus
 from api.services.posts import ConflictError, ExternalServiceError, NotFoundError
 
@@ -36,132 +38,158 @@ def _mock_record(
     return record
 
 
-@patch("api.routers.posts.PostService")
-async def test_list_posts(mock_cls: MagicMock, client: AsyncClient) -> None:
+def _make_client_with_mock(mock_service: AsyncMock) -> AsyncClient:
+    app = create_app()
+    app.dependency_overrides[get_service] = lambda: mock_service
+    transport = ASGITransport(app=app)
+    return AsyncClient(transport=transport, base_url="http://test")
+
+
+async def test_list_posts() -> None:
     record = _mock_record()
-    mock_cls.return_value.list = AsyncMock(return_value=([record], 1))
-    response = await client.get("/api/v1/posts")
+    mock_service = AsyncMock()
+    mock_service.list = AsyncMock(return_value=([record], 1))
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.get("/api/v1/posts")
     assert response.status_code == 200
     data = response.json()
     assert data["total"] == 1
     assert len(data["items"]) == 1
 
 
-@patch("api.routers.posts.PostService")
-async def test_list_posts_with_filters(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.list = AsyncMock(return_value=([], 0))
-    response = await client.get(
-        "/api/v1/posts", params={"status": "draft", "topic": "py", "limit": 10}
-    )
+async def test_list_posts_with_filters() -> None:
+    mock_service = AsyncMock()
+    mock_service.list = AsyncMock(return_value=([], 0))
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.get(
+            "/api/v1/posts", params={"status": "draft", "topic": "py", "limit": 10}
+        )
     assert response.status_code == 200
     assert response.json()["total"] == 0
 
 
-@patch("api.routers.posts.PostService")
-async def test_get_post(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.get = AsyncMock(return_value=_mock_record())
-    response = await client.get("/api/v1/posts/1")
+async def test_get_post() -> None:
+    record = _mock_record()
+    mock_service = AsyncMock()
+    mock_service.get = AsyncMock(return_value=record)
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.get("/api/v1/posts/1")
     assert response.status_code == 200
     assert response.json()["id"] == 1
 
 
-@patch("api.routers.posts.PostService")
-async def test_get_post_not_found(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.get = AsyncMock(
+async def test_get_post_not_found() -> None:
+    mock_service = AsyncMock()
+    mock_service.get = AsyncMock(
         side_effect=NotFoundError("Post 999 not found")
     )
-    response = await client.get("/api/v1/posts/999")
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.get("/api/v1/posts/999")
     assert response.status_code == 404
 
 
-@patch("api.routers.posts.PostService")
-async def test_update_post(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.update_content = AsyncMock(
-        return_value=_mock_record(content="Updated content", character_count=16)
-    )
-    response = await client.patch("/api/v1/posts/1", json={"content": "Updated content"})
+async def test_update_post() -> None:
+    record = _mock_record(content="Updated content", character_count=16)
+    mock_service = AsyncMock()
+    mock_service.update_content = AsyncMock(return_value=record)
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.patch(
+            "/api/v1/posts/1", json={"content": "Updated content"}
+        )
     assert response.status_code == 200
     assert response.json()["content"] == "Updated content"
 
 
-@patch("api.routers.posts.PostService")
-async def test_update_post_not_found(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.update_content = AsyncMock(
+async def test_update_post_not_found() -> None:
+    mock_service = AsyncMock()
+    mock_service.update_content = AsyncMock(
         side_effect=NotFoundError("Post 999 not found")
     )
-    response = await client.patch("/api/v1/posts/999", json={"content": "Updated"})
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.patch(
+            "/api/v1/posts/999", json={"content": "Updated"}
+        )
     assert response.status_code == 404
 
 
-@patch("api.routers.posts.PostService")
-async def test_update_post_published_conflict(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.update_content = AsyncMock(
+async def test_update_post_published_conflict() -> None:
+    mock_service = AsyncMock()
+    mock_service.update_content = AsyncMock(
         side_effect=ConflictError("Cannot update: status is published")
     )
-    response = await client.patch("/api/v1/posts/1", json={"content": "Updated"})
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.patch("/api/v1/posts/1", json={"content": "Updated"})
     assert response.status_code == 409
 
 
-async def test_update_post_empty_content(client: AsyncClient) -> None:
-    response = await client.patch("/api/v1/posts/1", json={"content": ""})
+async def test_update_post_empty_content() -> None:
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.patch("/api/v1/posts/1", json={"content": ""})
     assert response.status_code == 422
 
 
-@patch("api.routers.posts.PostService")
-async def test_publish_post(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.publish = AsyncMock(
-        return_value=_mock_record(
-            status=PostStatus.PUBLISHED,
-            linkedin_post_urn="urn:li:share:123",
-            published_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
+async def test_publish_post() -> None:
+    record = _mock_record(
+        status=PostStatus.PUBLISHED,
+        linkedin_post_urn="urn:li:share:123",
+        published_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
-    response = await client.post("/api/v1/posts/1/publish")
+    mock_service = AsyncMock()
+    mock_service.publish = AsyncMock(return_value=record)
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/posts/1/publish")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "published"
     assert data["linkedin_post_urn"] == "urn:li:share:123"
 
 
-@patch("api.routers.posts.PostService")
-async def test_publish_post_not_found(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.publish = AsyncMock(
+async def test_publish_post_not_found() -> None:
+    mock_service = AsyncMock()
+    mock_service.publish = AsyncMock(
         side_effect=NotFoundError("Post 999 not found")
     )
-    response = await client.post("/api/v1/posts/999/publish")
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/posts/999/publish")
     assert response.status_code == 404
 
 
-@patch("api.routers.posts.PostService")
-async def test_publish_post_already_published(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.publish = AsyncMock(
+async def test_publish_post_already_published() -> None:
+    mock_service = AsyncMock()
+    mock_service.publish = AsyncMock(
         side_effect=ConflictError("Cannot publish: already published")
     )
-    response = await client.post("/api/v1/posts/1/publish")
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/posts/1/publish")
     assert response.status_code == 409
 
 
-@patch("api.routers.posts.PostService")
-async def test_publish_post_linkedin_error(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.publish = AsyncMock(
+async def test_publish_post_linkedin_error() -> None:
+    mock_service = AsyncMock()
+    mock_service.publish = AsyncMock(
         side_effect=ExternalServiceError("LinkedIn API error")
     )
-    response = await client.post("/api/v1/posts/1/publish")
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/posts/1/publish")
     assert response.status_code == 502
     assert "LinkedIn API error" in response.json()["detail"]
 
 
-@patch("api.routers.posts.PostService")
-async def test_delete_post(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.delete = AsyncMock()
-    response = await client.delete("/api/v1/posts/1")
+async def test_delete_post() -> None:
+    mock_service = AsyncMock()
+    mock_service.delete = AsyncMock()
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.delete("/api/v1/posts/1")
     assert response.status_code == 204
 
 
-@patch("api.routers.posts.PostService")
-async def test_delete_post_not_found(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.delete = AsyncMock(
+async def test_delete_post_not_found() -> None:
+    mock_service = AsyncMock()
+    mock_service.delete = AsyncMock(
         side_effect=NotFoundError("Post 999 not found")
     )
-    response = await client.delete("/api/v1/posts/999")
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.delete("/api/v1/posts/999")
     assert response.status_code == 404

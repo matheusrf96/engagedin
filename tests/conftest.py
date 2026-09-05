@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
-from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -17,7 +16,6 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from api.database import Base
-from api.dependencies import get_session
 from api.main import create_app
 
 
@@ -37,26 +35,9 @@ def _get_test_db_url() -> str:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def mock_session() -> AsyncMock:
-    session = AsyncMock(spec=AsyncSession)
-    session.execute = AsyncMock()
-    session.commit = AsyncMock()
-    session.refresh = AsyncMock()
-    session.add = MagicMock()
-    session.delete = AsyncMock()
-    return session
-
-
-@pytest.fixture
-def app(mock_session: AsyncMock):
-    application = create_app()
-    application.dependency_overrides[get_session] = lambda: mock_session
-    return application
-
-
-@pytest.fixture
-async def client(app) -> AsyncIterator[AsyncClient]:
+@pytest_asyncio.fixture
+async def client() -> AsyncIterator[AsyncClient]:
+    app = create_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
+from api.dependencies import get_service
+from api.main import create_app
 from api.models import DraftSource, PostStatus
 from api.services.posts import ConflictError, ExternalServiceError, NotFoundError
 
@@ -33,75 +35,93 @@ def _mock_record(
     return record
 
 
-@patch("api.routers.generation.PostService")
-async def test_create_draft_standard(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.create_draft = AsyncMock(return_value=_mock_record())
-    response = await client.post("/api/v1/drafts", json={"topic": "python"})
+def _make_client_with_mock(mock_service: AsyncMock) -> AsyncClient:
+    app = create_app()
+    app.dependency_overrides[get_service] = lambda: mock_service
+    transport = ASGITransport(app=app)
+    return AsyncClient(transport=transport, base_url="http://test")
+
+
+async def test_create_draft_standard() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(return_value=_mock_record())
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/drafts", json={"topic": "python"})
     assert response.status_code == 201
     data = response.json()
     assert data["topic"] == "python"
     assert data["status"] == "draft"
 
 
-@patch("api.routers.generation.PostService")
-async def test_create_draft_headliner(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.create_draft = AsyncMock(
+async def test_create_draft_headliner() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(
         return_value=_mock_record(source=DraftSource.HEADLINER)
     )
-    response = await client.post(
-        "/api/v1/drafts", json={"topic": "AI", "source": "headliner", "days": 3}
-    )
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post(
+            "/api/v1/drafts",
+            json={"topic": "AI", "source": "headliner", "days": 3},
+        )
     assert response.status_code == 201
     assert response.json()["source"] == "headliner"
 
 
-@patch("api.routers.generation.PostService")
-async def test_create_draft_llm_config_error(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.create_draft = AsyncMock(
+async def test_create_draft_llm_config_error() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(
         side_effect=ExternalServiceError("missing api key", status_code=400)
     )
-    response = await client.post("/api/v1/drafts", json={"topic": "python"})
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/drafts", json={"topic": "python"})
     assert response.status_code == 400
     assert "missing api key" in response.json()["detail"]
 
 
-@patch("api.routers.generation.PostService")
-async def test_create_draft_news_error(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.create_draft = AsyncMock(
+async def test_create_draft_news_error() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(
         side_effect=ExternalServiceError("news source failed")
     )
-    response = await client.post(
-        "/api/v1/drafts", json={"topic": "AI", "source": "headliner", "days": 1}
-    )
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post(
+            "/api/v1/drafts",
+            json={"topic": "AI", "source": "headliner", "days": 1},
+        )
     assert response.status_code == 502
 
 
-async def test_create_draft_empty_topic(client: AsyncClient) -> None:
-    response = await client.post("/api/v1/drafts", json={"topic": ""})
+async def test_create_draft_empty_topic() -> None:
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post("/api/v1/drafts", json={"topic": ""})
     assert response.status_code == 422
 
 
-async def test_create_draft_missing_topic(client: AsyncClient) -> None:
-    response = await client.post("/api/v1/drafts", json={})
+async def test_create_draft_missing_topic() -> None:
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post("/api/v1/drafts", json={})
     assert response.status_code == 422
 
 
-@patch("api.routers.generation.PostService")
-async def test_create_draft_not_found(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.create_draft = AsyncMock(
+async def test_create_draft_not_found() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(
         side_effect=NotFoundError("news not found")
     )
-    response = await client.post("/api/v1/drafts", json={"topic": "AI"})
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/drafts", json={"topic": "AI"})
     assert response.status_code == 404
 
 
-@patch("api.routers.generation.PostService")
-async def test_create_draft_conflict(mock_cls: MagicMock, client: AsyncClient) -> None:
-    mock_cls.return_value.create_draft = AsyncMock(
+async def test_create_draft_conflict() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(
         side_effect=ConflictError("conflict")
     )
-    response = await client.post("/api/v1/drafts", json={"topic": "python"})
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/drafts", json={"topic": "python"})
     assert response.status_code == 409
-
-
-

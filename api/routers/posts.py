@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_session
+from api.dependencies import get_service
 from api.models import PostStatus
 from api.schemas import PostListResponse, PostOut, PostUpdateRequest
 from api.services.posts import (
@@ -22,9 +21,8 @@ async def list_posts(
     topic: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_session),
+    service: PostService = Depends(get_service),
 ) -> PostListResponse:
-    service = PostService(session)
     items, total = await service.list(
         status=status, topic=topic, limit=limit, offset=offset
     )
@@ -37,9 +35,8 @@ async def list_posts(
 @router.get("/{post_id}", response_model=PostOut)
 async def get_post(
     post_id: int,
-    session: AsyncSession = Depends(get_session),
+    service: PostService = Depends(get_service),
 ) -> PostOut:
-    service = PostService(session)
     try:
         record = await service.get(post_id)
     except NotFoundError as e:
@@ -51,9 +48,8 @@ async def get_post(
 async def update_post(
     post_id: int,
     request: PostUpdateRequest,
-    session: AsyncSession = Depends(get_session),
+    service: PostService = Depends(get_service),
 ) -> PostOut:
-    service = PostService(session)
     try:
         record = await service.update_content(post_id, request.content)
     except NotFoundError as e:
@@ -66,9 +62,8 @@ async def update_post(
 @router.post("/{post_id}/publish", response_model=PostOut)
 async def publish_post(
     post_id: int,
-    session: AsyncSession = Depends(get_session),
+    service: PostService = Depends(get_service),
 ) -> PostOut:
-    service = PostService(session)
     try:
         record = await service.publish(post_id)
     except NotFoundError as e:
@@ -85,9 +80,8 @@ async def publish_post(
 @router.delete("/{post_id}", status_code=204)
 async def delete_post(
     post_id: int,
-    session: AsyncSession = Depends(get_session),
+    service: PostService = Depends(get_service),
 ) -> None:
-    service = PostService(session)
     try:
         await service.delete(post_id)
     except NotFoundError as e:

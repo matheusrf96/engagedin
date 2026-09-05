@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_session
+from api.dependencies import get_service
 from api.models import DraftSource
 from api.schemas import DraftCreateRequest, PostOut
 from api.services.posts import (
@@ -19,9 +18,8 @@ router = APIRouter()
 @router.post("/drafts", response_model=PostOut, status_code=201)
 async def create_draft(
     request: DraftCreateRequest,
-    session: AsyncSession = Depends(get_session),
+    service: PostService = Depends(get_service),
 ) -> PostOut:
-    service = PostService(session)
     try:
         record = await service.create_draft(
             topic=request.topic,
