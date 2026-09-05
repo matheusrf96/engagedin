@@ -35,4 +35,5 @@ async def test_healthz_db_unreachable() -> None:
         response = await c.get("/api/v1/health")
 
     assert response.status_code == 503
+    assert response.json()["detail"]["status"] == "degraded"
     assert response.json()["detail"]["database"] == "unreachable"

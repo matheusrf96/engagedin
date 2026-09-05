@@ -33,7 +33,7 @@ class PostService:
     async def _generate(
         self, topic: str, source: DraftSource, days: int
     ) -> GeneratedDraft:
-        if source is DraftSource.HEADLINER:
+        if source == DraftSource.HEADLINER:
             return await asyncio.to_thread(
                 self._generate_headliner, topic, days
             )
@@ -94,7 +94,9 @@ class PostService:
         return await self.repo.update(record)
 
     async def publish(self, post_id: int) -> PostRecord:
-        record = await self.get(post_id)
+        record = await self.repo.get_for_update(post_id)
+        if record is None:
+            raise NotFoundError(f"Post {post_id} not found")
         if record.status == PostStatus.PUBLISHED:
             raise ConflictError(
                 f"Cannot publish post {post_id}: status is already published"

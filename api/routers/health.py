@@ -20,5 +20,5 @@ async def healthz(
     except SQLAlchemyError:
         raise HTTPException(
             status_code=503,
-            detail={"status": "ok", "database": "unreachable"},
+            detail={"status": "degraded", "database": "unreachable"},
         )

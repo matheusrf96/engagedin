@@ -17,6 +17,7 @@ from api.services.posts import (
 def _mock_repository(record: MagicMock | None = None) -> MagicMock:
     repo = MagicMock()
     repo.get = AsyncMock(return_value=record)
+    repo.get_for_update = AsyncMock(return_value=record)
     repo.list = AsyncMock(return_value=([], 0))
     repo.add = AsyncMock(side_effect=lambda r: r)
     repo.update = AsyncMock(side_effect=lambda r: r)
@@ -172,6 +173,25 @@ async def test_publish_already_published() -> None:
     with pytest.raises(ConflictError):
         await service.publish(1)
     repo.update.assert_not_awaited()
+
+
+async def test_publish_not_found() -> None:
+    repo = _mock_repository(None)
+    service = PostService(repo)
+    with pytest.raises(NotFoundError):
+        await service.publish(1)
+    repo.update.assert_not_awaited()
+
+
+@patch("api.services.posts.Engine")
+async def test_publish_uses_row_lock(mock_engine_cls: MagicMock) -> None:
+    record = _mock_record()
+    mock_engine_cls.return_value.publish_draft.return_value = "urn:li:share:123"
+    repo = _mock_repository(record)
+    service = PostService(repo)
+    await service.publish(1)
+    repo.get_for_update.assert_awaited_once_with(1)
+    repo.get.assert_not_awaited()
 
 
 @patch("api.services.posts.Engine")
