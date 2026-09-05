@@ -52,9 +52,8 @@ class PostRepository:
 
     async def update(self, record: PostRecord) -> PostRecord:
         await self.session.commit()
-        await self.session.refresh(record)
         return record
 
     async def delete(self, record: PostRecord) -> None:
-        self.session.delete(record)  # type: ignore[unused-coroutine]
+        await self.session.delete(record)
         await self.session.commit()

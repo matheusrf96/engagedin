@@ -13,7 +13,7 @@ def _mock_session(record: MagicMock | None = None) -> AsyncMock:
     session.commit = AsyncMock()
     session.refresh = AsyncMock()
     session.add = MagicMock()
-    session.delete = MagicMock()
+    session.delete = AsyncMock()
     return session
 
 
@@ -115,7 +115,6 @@ async def test_update() -> None:
     repo = PostRepository(session)
     result = await repo.update(record)
     session.commit.assert_awaited_once()
-    session.refresh.assert_awaited_once_with(record)
     assert result is record
 
 
@@ -124,5 +123,5 @@ async def test_delete() -> None:
     session = _mock_session(record)
     repo = PostRepository(session)
     await repo.delete(record)
-    session.delete.assert_called_once_with(record)
+    session.delete.assert_awaited_once_with(record)
     session.commit.assert_awaited_once()
