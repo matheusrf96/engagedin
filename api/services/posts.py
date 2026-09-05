@@ -84,7 +84,7 @@ class PostService:
 
     async def update_content(self, post_id: int, content: str) -> PostRecord:
         record = await self.get(post_id)
-        if record.status is PostStatus.PUBLISHED:
+        if record.status == PostStatus.PUBLISHED:
             raise ConflictError(
                 f"Cannot update post {post_id}: status is published"
             )
@@ -95,7 +95,7 @@ class PostService:
 
     async def publish(self, post_id: int) -> PostRecord:
         record = await self.get(post_id)
-        if record.status is PostStatus.PUBLISHED:
+        if record.status == PostStatus.PUBLISHED:
             raise ConflictError(
                 f"Cannot publish post {post_id}: status is already published"
             )
