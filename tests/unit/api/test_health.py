@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.exc import SQLAlchemyError
 
 from api.dependencies import get_session
 from api.main import create_app
@@ -24,7 +25,7 @@ async def test_healthz_reachable() -> None:
 
 async def test_healthz_db_unreachable() -> None:
     mock_session = AsyncMock()
-    mock_session.execute.side_effect = Exception("connection refused")
+    mock_session.execute.side_effect = SQLAlchemyError("connection refused")
 
     app = create_app()
     app.dependency_overrides[get_session] = lambda: mock_session
