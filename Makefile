@@ -1,5 +1,6 @@
 .PHONY: help format lint typecheck test unit-test coverage \
-        integration-test integration-test-up integration-test-down run
+        integration-test integration-test-up integration-test-down run \
+        openapi openapi-check
 
 help:
 	@echo "Available commands:"
@@ -13,6 +14,8 @@ help:
 	@echo "  make integration-test-down - Stop PostgreSQL (5433) and remove volume"
 	@echo "  make integration-test     - Run integration tests (starts/stops DB)"
 	@echo "  make run                  - Start dev DB + run the API locally"
+	@echo "  make openapi              - Regenerate docs/openapi.json from live FastAPI app"
+	@echo "  make openapi-check        - Fail if docs/openapi.json is stale (CI gate)"
 
 format:
 	uv run ruff check --fix .
@@ -75,3 +78,10 @@ run:
 		echo "Waiting... (attempt $$i/10)"; sleep 2; i=$$(($$i + 1)); \
 	done
 	DATABASE_URL=postgresql+asyncpg://engagedin:engagedin@localhost:5432/engagedin uv run uvicorn api.main:app --reload
+
+openapi:
+	uv run python -c "import asyncio; from api.openapi_export import export_openapi_schema; asyncio.run(export_openapi_schema())"
+
+openapi-check:
+	@echo "Checking if docs/openapi.json is up to date..."
+	@uv run python -u -c "import asyncio, atexit, os, pathlib, sys, tempfile; pathlib.Path('docs/openapi.json').exists() or sys.exit('ERROR: docs/openapi.json not found. Run make openapi to generate it.'); fd, name = tempfile.mkstemp(); os.close(fd); tmp = pathlib.Path(name); atexit.register(lambda: tmp.unlink(missing_ok=True)); import api.openapi_export; asyncio.run(api.openapi_export.export_openapi_schema(str(tmp))); actual = pathlib.Path('docs/openapi.json').read_bytes(); generated = tmp.read_bytes(); sys.exit(0) if actual == generated else sys.exit('ERROR: docs/openapi.json is stale. Run make openapi and commit the result.')"
