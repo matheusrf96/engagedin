@@ -17,7 +17,7 @@ async def test_healthz_reachable() -> None:
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
-        response = await c.get("/healthz")
+        response = await c.get("/api/v1/health")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
@@ -32,7 +32,7 @@ async def test_healthz_db_unreachable() -> None:
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
-        response = await c.get("/healthz")
+        response = await c.get("/api/v1/health")
 
     assert response.status_code == 503
     assert response.json()["detail"]["database"] == "unreachable"

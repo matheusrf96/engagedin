@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="EngagedIn API", version="0.4.0", lifespan=lifespan)
-    app.include_router(health_router)
+    app.include_router(health_router, prefix="/api/v1")
     app.include_router(generation_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(posts_router, prefix="/api/v1")

@@ -125,7 +125,7 @@ engagedin/
 │   ├── services/
 │   │   └── posts.py         # PostService (business logic)
 │   └── routers/
-│       ├── health.py        # GET /healthz
+    │       ├── health.py        # GET /api/v1/health
 │       ├── generation.py    # POST /api/v1/drafts
 │       ├── posts.py         # CRUD + publish
 │       └── auth.py          # GET /api/v1/auth/status
@@ -178,7 +178,7 @@ uv run uvicorn api.main:app --reload
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/healthz` | Health check (DB ping) |
+| `GET` | `/api/v1/health` | Health check (DB ping) |
 | `POST` | `/api/v1/drafts` | Generate a draft post |
 | `GET` | `/api/v1/posts` | List posts (filter by `status`, `topic`) |
 | `GET` | `/api/v1/posts/{id}` | Get a post |

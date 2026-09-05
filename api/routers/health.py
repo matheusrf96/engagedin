@@ -10,7 +10,7 @@ from api.dependencies import get_session
 router = APIRouter()
 
 
-@router.get("/healthz")
+@router.get("/health")
 async def healthz(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, str]:

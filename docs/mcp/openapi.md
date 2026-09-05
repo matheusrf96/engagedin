@@ -33,8 +33,8 @@ uv run python -c "import asyncio; from api.openapi_export import export_openapi_
   its documented request and response models
 - Verify Pydantic request and response models used by the post CRUD endpoints
   (list, get, update, publish, delete) before writing client code
-- Exercise the health (`/healthz`) and LinkedIn auth status endpoints using
-  the documented response payloads
+- Exercise the health (`/api/v1/health`) and LinkedIn auth status endpoints
+  using the documented response payloads
 - Let AI assistants inspect available routes before generating test payloads
   or API client examples for the EngagedIn service
 

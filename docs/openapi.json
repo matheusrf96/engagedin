@@ -5,10 +5,10 @@
     "version": "0.4.0"
   },
   "paths": {
-    "/healthz": {
+    "/api/v1/health": {
       "get": {
         "summary": "Healthz",
-        "operationId": "healthz_healthz_get",
+        "operationId": "healthz_api_v1_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -19,7 +19,7 @@
                     "type": "string"
                   },
                   "type": "object",
-                  "title": "Response Healthz Healthz Get"
+                  "title": "Response Healthz Api V1 Health Get"
                 }
               }
             }
