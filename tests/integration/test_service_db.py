@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from unittest.mock import patch
 
 import pytest
@@ -148,7 +148,7 @@ async def test_update_published_conflicts(
         content="published",
         character_count=9,
         linkedin_post_urn="urn:li:share:123",
-        published_at=datetime(2026, 1, 1, tzinfo=UTC),
+        published_at=datetime(2026, 1, 1),
     )
     integration_db_session.add(record)
     await integration_db_session.commit()

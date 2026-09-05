@@ -12,6 +12,11 @@ from engagedin.llm.client import LLMConfigError
 from engagedin.news.client import NewsError
 
 
+def _utcnow() -> datetime:
+    """Naive UTC now, matching the DB's timestamp without time zone columns."""
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class NotFoundError(Exception):
     pass
 
@@ -92,7 +97,7 @@ class PostService:
             )
         record.content = content
         record.character_count = len(content)
-        record.updated_at = datetime.now(UTC)
+        record.updated_at = _utcnow()
         return await self.repo.update(record)
 
     async def publish(self, post_id: int) -> PostRecord:
@@ -109,14 +114,14 @@ class PostService:
         except LinkedInError as e:
             record.status = PostStatus.FAILED
             record.error = str(e)
-            record.updated_at = datetime.now(UTC)
+            record.updated_at = _utcnow()
             await self.repo.update(record)
             raise ExternalServiceError(str(e)) from e
 
         record.linkedin_post_urn = post_urn
         record.status = PostStatus.PUBLISHED
-        record.published_at = datetime.now(UTC)
-        record.updated_at = datetime.now(UTC)
+        record.published_at = _utcnow()
+        record.updated_at = _utcnow()
         record.error = None
         return await self.repo.update(record)
 
