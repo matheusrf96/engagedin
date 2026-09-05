@@ -11,4 +11,4 @@ Spec-first contract for engagedin features. Each folder contains:
 | [uv-migration](./uv-migration/) | Spec written — not implemented |
 | [api-module](./api-module/) | Spec written — implemented |
 | [test-infrastructure](./test-infrastructure/) | Spec written — implemented |
-| [python-314-upgrade](./python-314-upgrade/) | Spec written — not implemented |
+| [python-314-upgrade](./python-314-upgrade/) | Spec written — implemented |
