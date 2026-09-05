@@ -1,9 +1,10 @@
-import asyncio
+from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
 from api.schemas import AuthStatusResponse
-from engagedin.linkedin.client import LinkedInClient, LinkedInError
+from api.services.auth import AuthService
+from api.services.posts import ExternalServiceError
 
 router = APIRouter(prefix="/auth")
 
@@ -11,11 +12,7 @@ router = APIRouter(prefix="/auth")
 @router.get("/status", response_model=AuthStatusResponse)
 async def auth_status() -> AuthStatusResponse:
     try:
-        client = LinkedInClient()
-        info = await asyncio.to_thread(client.get_user_info)
-    except LinkedInError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
-    return AuthStatusResponse(
-        name=info.get("name", "Unknown"),
-        sub=info.get("sub", "Unknown"),
-    )
+        info = await AuthService().get_status()
+    except ExternalServiceError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+    return AuthStatusResponse(**info)

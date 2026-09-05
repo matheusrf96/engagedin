@@ -5,12 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_service
 from api.models import DraftSource
 from api.schemas import DraftCreateRequest, PostOut
-from api.services.posts import (
-    ConflictError,
-    ExternalServiceError,
-    NotFoundError,
-    PostService,
-)
+from api.services.posts import ExternalServiceError, PostService
 
 router = APIRouter()
 
@@ -26,10 +21,6 @@ async def create_draft(
             source=DraftSource(request.source),
             days=request.days,
         )
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except ConflictError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
     except ExternalServiceError as e:
         raise HTTPException(
             status_code=e.status_code, detail=str(e)

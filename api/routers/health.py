@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,4 +17,7 @@ async def healthz(
         await session.execute(text("SELECT 1"))
         return {"status": "ok", "database": "reachable"}
     except Exception:
-        return {"status": "ok", "database": "unreachable"}
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "ok", "database": "unreachable"},
+        )

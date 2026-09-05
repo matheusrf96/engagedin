@@ -33,5 +33,5 @@ async def test_healthz_db_unreachable() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         response = await c.get("/healthz")
 
-    assert response.status_code == 200
-    assert response.json()["database"] == "unreachable"
+    assert response.status_code == 503
+    assert response.json()["detail"]["database"] == "unreachable"

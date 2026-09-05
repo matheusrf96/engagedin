@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from api.dependencies import get_service
 from api.main import create_app
 from api.models import DraftSource, PostStatus
-from api.services.posts import ConflictError, ExternalServiceError, NotFoundError
+from api.services.posts import ExternalServiceError
 
 
 def _mock_record(
@@ -105,23 +105,3 @@ async def test_create_draft_missing_topic() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post("/api/v1/drafts", json={})
     assert response.status_code == 422
-
-
-async def test_create_draft_not_found() -> None:
-    mock_service = AsyncMock()
-    mock_service.create_draft = AsyncMock(
-        side_effect=NotFoundError("news not found")
-    )
-    async with _make_client_with_mock(mock_service) as client:
-        response = await client.post("/api/v1/drafts", json={"topic": "AI"})
-    assert response.status_code == 404
-
-
-async def test_create_draft_conflict() -> None:
-    mock_service = AsyncMock()
-    mock_service.create_draft = AsyncMock(
-        side_effect=ConflictError("conflict")
-    )
-    async with _make_client_with_mock(mock_service) as client:
-        response = await client.post("/api/v1/drafts", json={"topic": "python"})
-    assert response.status_code == 409

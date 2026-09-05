@@ -35,12 +35,17 @@ class PostService:
     async def _generate(
         self, topic: str, source: DraftSource, days: int
     ) -> GeneratedDraft:
-        engine = Engine()
         if source is DraftSource.HEADLINER:
             return await asyncio.to_thread(
-                engine.generate_headliner_draft, topic=topic, days=days
+                self._generate_headliner, topic, days
             )
-        return await asyncio.to_thread(engine.generate_draft, topic)
+        return await asyncio.to_thread(self._generate_standard, topic)
+
+    def _generate_standard(self, topic: str) -> GeneratedDraft:
+        return Engine().generate_draft(topic)
+
+    def _generate_headliner(self, topic: str, days: int) -> GeneratedDraft:
+        return Engine().generate_headliner_draft(topic=topic, days=days)
 
     async def create_draft(
         self, topic: str, source: DraftSource, days: int
@@ -96,14 +101,10 @@ class PostService:
                 f"Cannot publish post {post_id}: status is already published"
             )
 
-        engine = Engine()
-        draft = GeneratedDraft(
-            content=record.content,
-            character_count=record.character_count,
-        )
-
         try:
-            post_urn = await asyncio.to_thread(engine.publish_draft, draft)
+            post_urn = await asyncio.to_thread(
+                self._publish_draft, record.content, record.character_count
+            )
         except LinkedInError as e:
             record.status = PostStatus.FAILED
             record.error = str(e)
@@ -115,6 +116,10 @@ class PostService:
         record.published_at = datetime.now(UTC)
         record.error = None
         return await self.repo.update(record)
+
+    def _publish_draft(self, content: str, character_count: int) -> str:
+        draft = GeneratedDraft(content=content, character_count=character_count)
+        return Engine().publish_draft(draft)
 
     async def delete(self, post_id: int) -> None:
         record = await self.get(post_id)

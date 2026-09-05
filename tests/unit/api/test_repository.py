@@ -115,6 +115,7 @@ async def test_update() -> None:
     repo = PostRepository(session)
     result = await repo.update(record)
     session.commit.assert_awaited_once()
+    session.refresh.assert_awaited_once_with(record)
     assert result is record
 
 

@@ -22,7 +22,8 @@ from api.main import create_app
 def _get_test_db_url() -> str:
     """Get PostgreSQL test database URL from environment or use default."""
     if db_url := os.getenv("DATABASE_URL"):
-        return db_url.replace("/engagedin", "/engagedin_test", 1)
+        base, _, _ = db_url.rpartition("/")
+        return f"{base}/engagedin_test"
     postgres_port = os.getenv("POSTGRES_PORT", "5432")
     return (
         f"postgresql+asyncpg://engagedin:engagedin@localhost:"
