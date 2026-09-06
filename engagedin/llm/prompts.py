@@ -57,4 +57,11 @@ Write an opinionated LinkedIn post that:
 - Challenges the reader to think differently
 - Uses the tone and follows the rules specified in the system prompt
 
-Focus your post on the single most important or interesting story from the news above."""
+Focus your post on the single most important or interesting story from the
+news above.
+
+Do not include the article URL inside the post text; the URL will be attached
+as a link preview separately.
+
+End your reply with a final line on its own in the exact format:
+SOURCE: <number of the article from the list above that your post is about>"""

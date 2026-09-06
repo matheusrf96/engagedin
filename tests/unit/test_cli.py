@@ -330,9 +330,31 @@ def test_headliner_defaults(
     assert result.exit_code == 0
     assert "Opinative post about tech news" in result.output
     assert "Headliner Draft" in result.output
+    assert "Reference article" not in result.output
     mock_engine.generate_headliner_draft.assert_called_once_with(
         days=1, topic="technology"
     )
+
+
+@patch("cli.main.Engine")
+def test_headliner_shows_reference(
+    mock_engine_cls: MagicMock, runner: CliRunner
+) -> None:
+    mock_engine = _mock_engine()
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="Opinative post about tech news",
+        character_count=30,
+        reference_url="https://example.com/news",
+        reference_title="Groundbreaking AI news",
+        reference_description="News description",
+    )
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["headliner", "--yes"])
+
+    assert result.exit_code == 0
+    assert "Reference article" in result.output
+    assert "Groundbreaking AI news" in result.output
+    assert "https://example.com/news" in result.output
 
 
 @patch("cli.main.Engine")

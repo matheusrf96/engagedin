@@ -64,10 +64,20 @@ class TemplateRule(BaseModel):
 class GeneratedDraft(BaseModel):
     content: str
     character_count: int = 0
+    reference_url: str | None = None
+    reference_title: str | None = None
+    reference_description: str | None = None
+
+
+class ArticleRef(BaseModel):
+    source: str
+    title: str
+    description: str
 
 
 class Post(BaseModel):
     author: str
     commentary: str
+    article: ArticleRef | None = None
     visibility: Literal["PUBLIC", "CONNECTIONS"] = "PUBLIC"
     lifecycle_state: Literal["PUBLISHED"] = "PUBLISHED"

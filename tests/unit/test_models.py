@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from engagedin.core.models import (
+    ArticleRef,
     GeneratedDraft,
     HashtagRule,
     HashtagStyle,
@@ -71,6 +72,7 @@ def test_default_post() -> None:
     post = Post(author="urn:li:person:abc123", commentary="Hello World")
     assert post.author == "urn:li:person:abc123"
     assert post.commentary == "Hello World"
+    assert post.article is None
     assert post.visibility == "PUBLIC"
     assert post.lifecycle_state == "PUBLISHED"
 
@@ -88,6 +90,47 @@ def test_generated_draft() -> None:
     draft = GeneratedDraft(content="test", character_count=4)
     assert draft.content == "test"
     assert draft.character_count == 4
+    assert draft.reference_url is None
+    assert draft.reference_title is None
+    assert draft.reference_description is None
+
+
+def test_generated_draft_with_reference() -> None:
+    draft = GeneratedDraft(
+        content="test",
+        character_count=4,
+        reference_url="https://example.com",
+        reference_title="Example",
+        reference_description="Description",
+    )
+    assert draft.reference_url == "https://example.com"
+    assert draft.reference_title == "Example"
+    assert draft.reference_description == "Description"
+
+
+def test_article_ref() -> None:
+    article = ArticleRef(
+        source="https://example.com",
+        title="Example",
+        description="Description",
+    )
+    assert article.source == "https://example.com"
+    assert article.title == "Example"
+    assert article.description == "Description"
+
+
+def test_post_with_article() -> None:
+    article = ArticleRef(
+        source="https://example.com",
+        title="Example",
+        description="Description",
+    )
+    post = Post(
+        author="urn:li:person:abc123",
+        commentary="Hello World",
+        article=article,
+    )
+    assert post.article == article
 
 
 def test_schedule_rule_defaults() -> None:

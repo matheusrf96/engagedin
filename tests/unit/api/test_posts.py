@@ -20,6 +20,9 @@ def _mock_record(
     status: PostStatus = PostStatus.DRAFT,
     content: str = "Test content",
     character_count: int = 12,
+    reference_url: str | None = None,
+    reference_title: str | None = None,
+    reference_description: str | None = None,
     linkedin_post_urn: str | None = None,
     error: str | None = None,
     published_at: datetime | None = None,
@@ -31,6 +34,9 @@ def _mock_record(
     record.status = status
     record.content = content
     record.character_count = character_count
+    record.reference_url = reference_url
+    record.reference_title = reference_title
+    record.reference_description = reference_description
     record.linkedin_post_urn = linkedin_post_urn
     record.error = error
     record.created_at = datetime(2026, 1, 1, tzinfo=UTC)

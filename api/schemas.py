@@ -27,6 +27,9 @@ class PostOut(BaseModel):
     status: PostStatus
     content: str
     character_count: int
+    reference_url: str | None
+    reference_title: str | None
+    reference_description: str | None
     linkedin_post_urn: str | None
     error: str | None
     created_at: datetime

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from httpx import AsyncClient
 
@@ -16,47 +16,50 @@ async def test_healthz_reports_reachable(async_client: AsyncClient) -> None:
     assert data["database"] == "reachable"
 
 
-async def test_full_post_lifecycle(async_client: AsyncClient) -> None:
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.generate_draft.return_value = GeneratedDraft(
-            content="Integration test draft", character_count=25
-        )
-        mock_engine.return_value.publish_draft.return_value = "urn:li:share:int123"
+@patch("api.services.posts.Engine")
+async def test_full_post_lifecycle(
+    mock_engine_cls: MagicMock,
+    async_client: AsyncClient,
+) -> None:
+    mock_engine_cls.return_value.generate_draft.return_value = GeneratedDraft(
+        content="Integration test draft", character_count=25
+    )
+    mock_engine_cls.return_value.publish_draft.return_value = "urn:li:share:int123"
 
-        # Create draft
-        resp = await async_client.post(
-            "/api/v1/drafts", json={"topic": "integration"}
-        )
-        assert resp.status_code == 201
-        post_id = resp.json()["id"]
+    # Create draft
+    resp = await async_client.post(
+        "/api/v1/drafts", json={"topic": "integration"}
+    )
+    assert resp.status_code == 201
+    post_id = resp.json()["id"]
 
-        # List posts
-        resp = await async_client.get("/api/v1/posts")
-        assert resp.status_code == 200
-        assert resp.json()["total"] >= 1
+    # List posts
+    resp = await async_client.get("/api/v1/posts")
+    assert resp.status_code == 200
+    assert resp.json()["total"] >= 1
 
-        # Get the specific post
-        resp = await async_client.get(f"/api/v1/posts/{post_id}")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "draft"
+    # Get the specific post
+    resp = await async_client.get(f"/api/v1/posts/{post_id}")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "draft"
 
-        # Update content
-        resp = await async_client.patch(
-            f"/api/v1/posts/{post_id}",
-            json={"content": "Updated integration content"},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["content"] == "Updated integration content"
+    # Update content
+    resp = await async_client.patch(
+        f"/api/v1/posts/{post_id}",
+        json={"content": "Updated integration content"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["content"] == "Updated integration content"
 
-        # Publish
-        resp = await async_client.post(f"/api/v1/posts/{post_id}/publish")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "published"
-        assert resp.json()["linkedin_post_urn"] == "urn:li:share:int123"
+    # Publish
+    resp = await async_client.post(f"/api/v1/posts/{post_id}/publish")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "published"
+    assert resp.json()["linkedin_post_urn"] == "urn:li:share:int123"
 
-        # Publish again (409)
-        resp = await async_client.post(f"/api/v1/posts/{post_id}/publish")
-        assert resp.status_code == 409
+    # Publish again (409)
+    resp = await async_client.post(f"/api/v1/posts/{post_id}/publish")
+    assert resp.status_code == 409
 
     # Delete
     resp = await async_client.delete(f"/api/v1/posts/{post_id}")
@@ -67,27 +70,63 @@ async def test_full_post_lifecycle(async_client: AsyncClient) -> None:
     assert resp.status_code == 404
 
 
-async def test_publish_linkedin_failure_marks_failed(
+@patch("api.services.posts.Engine")
+async def test_headliner_reference_roundtrip(
+    mock_engine_cls: MagicMock,
     async_client: AsyncClient,
 ) -> None:
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.generate_draft.return_value = GeneratedDraft(
-            content="Will fail on publish", character_count=21
+    mock_engine_cls.return_value.generate_headliner_draft.return_value = (
+        GeneratedDraft(
+            content="Headliner integration draft",
+            character_count=25,
+            reference_url="https://example.com/int",
+            reference_title="Integration news",
+            reference_description="Integration description",
         )
+    )
+    mock_engine_cls.return_value.publish_draft.return_value = "urn:li:share:int456"
 
-        resp = await async_client.post(
-            "/api/v1/drafts", json={"topic": "linkedin-fail"}
-        )
-        assert resp.status_code == 201
-        post_id = resp.json()["id"]
+    resp = await async_client.post(
+        "/api/v1/drafts",
+        json={"topic": "AI", "source": "headliner", "days": 1},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    post_id = data["id"]
+    assert data["reference_url"] == "https://example.com/int"
+    assert data["reference_title"] == "Integration news"
+    assert data["reference_description"] == "Integration description"
 
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.publish_draft.side_effect = LinkedInError(
-            "LinkedIn API error"
-        )
+    # Published post carries the stored reference to the engine
+    resp = await async_client.post(f"/api/v1/posts/{post_id}/publish")
+    assert resp.status_code == 200
+    draft = mock_engine_cls.return_value.publish_draft.call_args[0][0]
+    assert draft.reference_url == "https://example.com/int"
+    assert draft.reference_title == "Integration news"
+    assert draft.reference_description == "Integration description"
 
-        resp = await async_client.post(f"/api/v1/posts/{post_id}/publish")
-        assert resp.status_code == 502
+
+@patch("api.services.posts.Engine")
+async def test_publish_linkedin_failure_marks_failed(
+    mock_engine_cls: MagicMock,
+    async_client: AsyncClient,
+) -> None:
+    mock_engine_cls.return_value.generate_draft.return_value = GeneratedDraft(
+        content="Will fail on publish", character_count=21
+    )
+
+    resp = await async_client.post(
+        "/api/v1/drafts", json={"topic": "linkedin-fail"}
+    )
+    assert resp.status_code == 201
+    post_id = resp.json()["id"]
+
+    mock_engine_cls.return_value.publish_draft.side_effect = LinkedInError(
+        "LinkedIn API error"
+    )
+
+    resp = await async_client.post(f"/api/v1/posts/{post_id}/publish")
+    assert resp.status_code == 502
 
     # Verify the record persisted as failed
     resp = await async_client.get(f"/api/v1/posts/{post_id}")
@@ -96,16 +135,17 @@ async def test_publish_linkedin_failure_marks_failed(
     assert "LinkedIn API error" in resp.json()["error"]
 
 
+@patch("api.services.posts.Engine")
 async def test_list_pagination_and_filters(
+    mock_engine_cls: MagicMock,
     async_client: AsyncClient,
 ) -> None:
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.generate_draft.return_value = GeneratedDraft(
-            content="x", character_count=1
-        )
+    mock_engine_cls.return_value.generate_draft.return_value = GeneratedDraft(
+        content="x", character_count=1
+    )
 
-        for topic in ["py", "py", "rust"]:
-            await async_client.post("/api/v1/drafts", json={"topic": topic})
+    for topic in ["py", "py", "rust"]:
+        await async_client.post("/api/v1/drafts", json={"topic": topic})
 
     # Filter by topic
     resp = await async_client.get("/api/v1/posts", params={"topic": "py"})

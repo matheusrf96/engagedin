@@ -441,6 +441,39 @@
             "type": "integer",
             "title": "Character Count"
           },
+          "reference_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Url"
+          },
+          "reference_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Title"
+          },
+          "reference_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Description"
+          },
           "linkedin_post_urn": {
             "anyOf": [
               {
@@ -494,6 +527,9 @@
           "status",
           "content",
           "character_count",
+          "reference_url",
+          "reference_title",
+          "reference_description",
           "linkedin_post_urn",
           "error",
           "created_at",
