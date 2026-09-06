@@ -139,6 +139,8 @@ def test_generate_headliner_post(
     assert messages[1]["role"] == "user"
     assert "AI Breakthrough" in messages[1]["content"]
     assert "AI" in messages[1]["content"]
+    assert "SOURCE:" in messages[1]["content"]
+    assert "Do not include the article URL inside the post text" in messages[1]["content"]
 
 
 @patch("engagedin.llm.client.settings")
