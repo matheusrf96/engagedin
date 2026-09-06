@@ -65,10 +65,12 @@ indices always agree.
 
 ### REQ-LAC-002 — Top-ranked fallback
 
-WHEN the LLM reply has no `SOURCE:` line, or the parsed index is out of range
-(`n < 1` or `n > len(articles)`)
-THE SYSTEM SHALL use the first (top-ranked) article as the reference
-AND SHALL keep the post content unchanged (nothing stripped, no error raised)
+WHEN the LLM reply has no `SOURCE:` line
+THE SYSTEM SHALL use the first (top-ranked) article as the reference and keep
+the post content unchanged (nothing stripped, no error raised)
+AND WHEN a `SOURCE:` line is present but its parsed index is out of range
+(`n < 1` or `n > len(articles)`) THE SYSTEM SHALL still strip the marker line
+and use the first article as the reference
 WHILE generation still succeeds whenever at least one article was fetched.
 
 ### REQ-LAC-003 — GeneratedDraft reference fields

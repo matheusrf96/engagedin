@@ -8,7 +8,7 @@ Spec-first contract for engagedin features. Each folder contains:
 
 | Feature | Status |
 |---------|--------|
-| [linkedin-article-card](./linkedin-article-card/) | Spec written — not implemented |
+| [linkedin-article-card](./linkedin-article-card/) | Spec written — implemented |
 | [uv-migration](./uv-migration/) | Spec written — not implemented |
 | [api-module](./api-module/) | Spec written — implemented |
 | [test-infrastructure](./test-infrastructure/) | Spec written — implemented |
