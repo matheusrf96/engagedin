@@ -202,6 +202,16 @@ def headliner(
         )
     )
 
+    if draft.reference_url:
+        console.print(
+            Panel(
+                f"{draft.reference_title or draft.reference_url}\n"
+                f"{draft.reference_url}",
+                title="📰 Reference article",
+                border_style="cyan",
+            )
+        )
+
     if draft.character_count < 100:
         console.print(
             "[yellow]Warning: Post is very short. Consider a more detailed topic.[/yellow]"
