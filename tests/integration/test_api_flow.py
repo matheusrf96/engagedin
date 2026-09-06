@@ -67,6 +67,39 @@ async def test_full_post_lifecycle(async_client: AsyncClient) -> None:
     assert resp.status_code == 404
 
 
+async def test_headliner_reference_roundtrip(async_client: AsyncClient) -> None:
+    with patch("api.services.posts.Engine") as mock_engine:
+        mock_engine.return_value.generate_headliner_draft.return_value = (
+            GeneratedDraft(
+                content="Headliner integration draft",
+                character_count=25,
+                reference_url="https://example.com/int",
+                reference_title="Integration news",
+                reference_description="Integration description",
+            )
+        )
+        mock_engine.return_value.publish_draft.return_value = "urn:li:share:int456"
+
+        resp = await async_client.post(
+            "/api/v1/drafts",
+            json={"topic": "AI", "source": "headliner", "days": 1},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        post_id = data["id"]
+        assert data["reference_url"] == "https://example.com/int"
+        assert data["reference_title"] == "Integration news"
+        assert data["reference_description"] == "Integration description"
+
+        # Published post carries the stored reference to the engine
+        resp = await async_client.post(f"/api/v1/posts/{post_id}/publish")
+        assert resp.status_code == 200
+        draft = mock_engine.return_value.publish_draft.call_args[0][0]
+        assert draft.reference_url == "https://example.com/int"
+        assert draft.reference_title == "Integration news"
+        assert draft.reference_description == "Integration description"
+
+
 async def test_publish_linkedin_failure_marks_failed(
     async_client: AsyncClient,
 ) -> None:

@@ -33,6 +33,9 @@ def _mock_record(
     character_count: int = 12,
     linkedin_post_urn: str | None = None,
     error: str | None = None,
+    reference_url: str | None = None,
+    reference_title: str | None = None,
+    reference_description: str | None = None,
 ) -> MagicMock:
     record = MagicMock()
     record.id = id
@@ -41,6 +44,9 @@ def _mock_record(
     record.status = status
     record.content = content
     record.character_count = character_count
+    record.reference_url = reference_url
+    record.reference_title = reference_title
+    record.reference_description = reference_description
     record.linkedin_post_urn = linkedin_post_urn
     record.error = error
     record.created_at = datetime(2026, 1, 1, tzinfo=UTC)
@@ -84,6 +90,9 @@ async def test_create_draft_standard(mock_engine_cls: MagicMock) -> None:
     draft = MagicMock()
     draft.content = "Generated content"
     draft.character_count = 18
+    draft.reference_url = None
+    draft.reference_title = None
+    draft.reference_description = None
     mock_engine_cls.return_value.generate_draft.return_value = draft
 
     repo = _mock_repository()
@@ -93,6 +102,9 @@ async def test_create_draft_standard(mock_engine_cls: MagicMock) -> None:
     added_record = repo.add.call_args[0][0]
     assert added_record.topic == "python"
     assert added_record.content == "Generated content"
+    assert added_record.reference_url is None
+    assert added_record.reference_title is None
+    assert added_record.reference_description is None
 
 
 @patch("api.services.posts.Engine")
@@ -100,12 +112,20 @@ async def test_create_draft_headliner(mock_engine_cls: MagicMock) -> None:
     draft = MagicMock()
     draft.content = "Headliner content"
     draft.character_count = 19
+    draft.reference_url = "https://example.com/news"
+    draft.reference_title = "News title"
+    draft.reference_description = "News description"
     mock_engine_cls.return_value.generate_headliner_draft.return_value = draft
 
     repo = _mock_repository()
     service = PostService(repo)
     await service.create_draft("AI", DraftSource.HEADLINER, 3)
     repo.add.assert_awaited_once()
+    added_record = repo.add.call_args[0][0]
+    assert added_record.content == "Headliner content"
+    assert added_record.reference_url == "https://example.com/news"
+    assert added_record.reference_title == "News title"
+    assert added_record.reference_description == "News description"
 
 
 @patch("api.services.posts.Engine")
@@ -164,6 +184,44 @@ async def test_publish_success(mock_engine_cls: MagicMock) -> None:
     assert record.status is PostStatus.PUBLISHED
     assert record.published_at is not None
     repo.update.assert_awaited_once_with(record)
+
+
+@patch("api.services.posts.Engine")
+async def test_publish_rebuilds_draft_with_reference(
+    mock_engine_cls: MagicMock,
+) -> None:
+    record = _mock_record(
+        reference_url="https://example.com/news",
+        reference_title="News title",
+        reference_description="News description",
+    )
+    mock_engine_cls.return_value.publish_draft.return_value = "urn:li:share:123"
+    repo = _mock_repository(record)
+    service = PostService(repo)
+    await service.publish(1)
+
+    draft = mock_engine_cls.return_value.publish_draft.call_args[0][0]
+    assert draft.content == "Test content"
+    assert draft.character_count == 12
+    assert draft.reference_url == "https://example.com/news"
+    assert draft.reference_title == "News title"
+    assert draft.reference_description == "News description"
+
+
+@patch("api.services.posts.Engine")
+async def test_publish_rebuilds_draft_without_reference(
+    mock_engine_cls: MagicMock,
+) -> None:
+    record = _mock_record()
+    mock_engine_cls.return_value.publish_draft.return_value = "urn:li:share:123"
+    repo = _mock_repository(record)
+    service = PostService(repo)
+    await service.publish(1)
+
+    draft = mock_engine_cls.return_value.publish_draft.call_args[0][0]
+    assert draft.reference_url is None
+    assert draft.reference_title is None
+    assert draft.reference_description is None
 
 
 async def test_publish_already_published() -> None:

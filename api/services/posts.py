@@ -61,6 +61,9 @@ class PostService:
             status=PostStatus.DRAFT,
             content=draft.content,
             character_count=draft.character_count,
+            reference_url=draft.reference_url,
+            reference_title=draft.reference_title,
+            reference_description=draft.reference_description,
         )
         return await self.repo.add(record)
 
@@ -104,7 +107,12 @@ class PostService:
 
         try:
             post_urn = await asyncio.to_thread(
-                self._publish_draft, record.content, record.character_count
+                self._publish_draft,
+                record.content,
+                record.character_count,
+                record.reference_url,
+                record.reference_title,
+                record.reference_description,
             )
         except LinkedInError as e:
             record.status = PostStatus.FAILED
@@ -120,8 +128,21 @@ class PostService:
         record.error = None
         return await self.repo.update(record)
 
-    def _publish_draft(self, content: str, character_count: int) -> str:
-        draft = GeneratedDraft(content=content, character_count=character_count)
+    def _publish_draft(
+        self,
+        content: str,
+        character_count: int,
+        reference_url: str | None,
+        reference_title: str | None,
+        reference_description: str | None,
+    ) -> str:
+        draft = GeneratedDraft(
+            content=content,
+            character_count=character_count,
+            reference_url=reference_url,
+            reference_title=reference_title,
+            reference_description=reference_description,
+        )
         return Engine().publish_draft(draft)
 
     async def delete(self, post_id: int) -> None:
