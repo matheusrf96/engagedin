@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from engagedin.core.models import Post
+from engagedin.core.models import ArticleRef, Post
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
 
 
@@ -41,6 +41,61 @@ def test_create_post_success(
 
     assert result == "urn:li:share:12345"
     mock_httpx_post.assert_called_once()
+
+
+@patch("httpx.post")
+@patch("engagedin.linkedin.client.settings")
+def test_create_post_without_article_omits_content(
+    mock_linkedin_settings: MagicMock,
+    mock_httpx_post: MagicMock,
+) -> None:
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 201
+    mock_response.headers = {"x-restli-id": "urn:li:share:12345"}
+    mock_httpx_post.return_value = mock_response
+    mock_linkedin_settings.linkedin_access_token = "test-token"
+
+    client = LinkedInClient()
+    post = Post(author="urn:li:person:abc123", commentary="Test post content")
+    client.create_post(post)
+
+    body = mock_httpx_post.call_args[1]["json"]
+    assert "content" not in body
+    assert body["commentary"] == "Test post content"
+    assert body["author"] == "urn:li:person:abc123"
+
+
+@patch("httpx.post")
+@patch("engagedin.linkedin.client.settings")
+def test_create_post_with_article_includes_content(
+    mock_linkedin_settings: MagicMock,
+    mock_httpx_post: MagicMock,
+) -> None:
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 201
+    mock_response.headers = {"x-restli-id": "urn:li:share:12345"}
+    mock_httpx_post.return_value = mock_response
+    mock_linkedin_settings.linkedin_access_token = "test-token"
+
+    client = LinkedInClient()
+    post = Post(
+        author="urn:li:person:abc123",
+        commentary="Test post content",
+        article=ArticleRef(
+            source="https://example.com/news",
+            title="News title",
+            description="News description",
+        ),
+    )
+    client.create_post(post)
+
+    body = mock_httpx_post.call_args[1]["json"]
+    assert body["content"]["article"] == {
+        "source": "https://example.com/news",
+        "title": "News title",
+        "description": "News description",
+    }
+    assert "thumbnail" not in body["content"]["article"]
 
 
 @patch("httpx.post")

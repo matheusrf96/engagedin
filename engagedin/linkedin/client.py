@@ -67,7 +67,7 @@ class LinkedInClient:
         )
 
     def create_post(self, post: Post) -> str:
-        body = {
+        body: dict[str, object] = {
             "author": post.author,
             "commentary": post.commentary,
             "visibility": post.visibility,
@@ -79,6 +79,14 @@ class LinkedInClient:
             "lifecycleState": post.lifecycle_state,
             "isReshareDisabledByAuthor": False,
         }
+        if post.article is not None:
+            body["content"] = {
+                "article": {
+                    "source": post.article.source,
+                    "title": post.article.title,
+                    "description": post.article.description,
+                }
+            }
         try:
             response = self._send_create_post(body)
         except httpx.HTTPError as e:
