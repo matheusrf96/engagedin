@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,13 +22,14 @@ def _draft(content: str = "Test content") -> GeneratedDraft:
     return GeneratedDraft(content=content, character_count=len(content))
 
 
+@patch("api.services.posts.Engine")
 async def test_create_draft_persists(
+    mock_engine_cls: MagicMock,
     integration_db_session: AsyncSession,
 ) -> None:
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.generate_draft.return_value = _draft("Hello")
-        service = PostService(PostRepository(integration_db_session))
-        record = await service.create_draft("python", DraftSource.STANDARD, 1)
+    mock_engine_cls.return_value.generate_draft.return_value = _draft("Hello")
+    service = PostService(PostRepository(integration_db_session))
+    record = await service.create_draft("python", DraftSource.STANDARD, 1)
 
     assert record.id is not None
     assert record.topic == "python"
@@ -42,15 +43,16 @@ async def test_create_draft_persists(
     assert db_record.topic == "python"
 
 
+@patch("api.services.posts.Engine")
 async def test_create_draft_headliner_persists(
+    mock_engine_cls: MagicMock,
     integration_db_session: AsyncSession,
 ) -> None:
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.generate_headliner_draft.return_value = _draft(
-            "Headliner"
-        )
-        service = PostService(PostRepository(integration_db_session))
-        record = await service.create_draft("AI", DraftSource.HEADLINER, 3)
+    mock_engine_cls.return_value.generate_headliner_draft.return_value = _draft(
+        "Headliner"
+    )
+    service = PostService(PostRepository(integration_db_session))
+    record = await service.create_draft("AI", DraftSource.HEADLINER, 3)
 
     assert record.source is DraftSource.HEADLINER
     assert record.content == "Headliner"
@@ -159,7 +161,9 @@ async def test_update_published_conflicts(
         await service.update_content(record.id, "new")
 
 
+@patch("api.services.posts.Engine")
 async def test_publish_success_persists_urn(
+    mock_engine_cls: MagicMock,
     integration_db_session: AsyncSession,
 ) -> None:
     record = PostRecord(
@@ -173,17 +177,18 @@ async def test_publish_success_persists_urn(
     await integration_db_session.commit()
     await integration_db_session.refresh(record)
 
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.publish_draft.return_value = "urn:li:share:abc"
-        service = PostService(PostRepository(integration_db_session))
-        result = await service.publish(record.id)
+    mock_engine_cls.return_value.publish_draft.return_value = "urn:li:share:abc"
+    service = PostService(PostRepository(integration_db_session))
+    result = await service.publish(record.id)
 
     assert result.linkedin_post_urn == "urn:li:share:abc"
     assert result.status is PostStatus.PUBLISHED
     assert result.published_at is not None
 
 
+@patch("api.services.posts.Engine")
 async def test_publish_failure_persists_failed(
+    mock_engine_cls: MagicMock,
     integration_db_session: AsyncSession,
 ) -> None:
     record = PostRecord(
@@ -197,20 +202,21 @@ async def test_publish_failure_persists_failed(
     await integration_db_session.commit()
     await integration_db_session.refresh(record)
 
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.publish_draft.side_effect = LinkedInError(
-            "API error"
-        )
-        service = PostService(PostRepository(integration_db_session))
-        with pytest.raises(ExternalServiceError):
-            await service.publish(record.id)
+    mock_engine_cls.return_value.publish_draft.side_effect = LinkedInError(
+        "API error"
+    )
+    service = PostService(PostRepository(integration_db_session))
+    with pytest.raises(ExternalServiceError):
+        await service.publish(record.id)
 
     db_record = await integration_db_session.get(PostRecord, record.id)
     assert db_record.status is PostStatus.FAILED
     assert db_record.error == "API error"
 
 
+@patch("api.services.posts.Engine")
 async def test_publish_after_failure_succeeds(
+    mock_engine_cls: MagicMock,
     integration_db_session: AsyncSession,
 ) -> None:
     record = PostRecord(
@@ -225,10 +231,9 @@ async def test_publish_after_failure_succeeds(
     await integration_db_session.commit()
     await integration_db_session.refresh(record)
 
-    with patch("api.services.posts.Engine") as mock_engine:
-        mock_engine.return_value.publish_draft.return_value = "urn:li:share:retry"
-        service = PostService(PostRepository(integration_db_session))
-        result = await service.publish(record.id)
+    mock_engine_cls.return_value.publish_draft.return_value = "urn:li:share:retry"
+    service = PostService(PostRepository(integration_db_session))
+    result = await service.publish(record.id)
 
     assert result.status is PostStatus.PUBLISHED
     assert result.linkedin_post_urn == "urn:li:share:retry"
