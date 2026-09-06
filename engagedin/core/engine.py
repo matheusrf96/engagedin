@@ -24,7 +24,8 @@ def _split_reference(
     Falls back to the top-ranked article when the marker is missing,
     malformed, or its index is out of range.
     """
-    lines = content.splitlines()
+    normalized = content.rstrip()
+    lines = normalized.splitlines()
     match = SOURCE_LINE_RE.match(lines[-1]) if lines else None
     article: NewsArticle | None = None
     if match is not None:

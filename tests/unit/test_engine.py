@@ -242,6 +242,17 @@ def test_generate_headliner_draft_marker_case_insensitive() -> None:
     assert draft.reference_url == "https://example.com/second"
 
 
+def test_generate_headliner_draft_marker_with_trailing_blank_lines() -> None:
+    engine, _, _ = _headliner_engine_with_articles(
+        "Opinion\n\nSOURCE: 2\n\n\n"
+    )
+    draft = engine.generate_headliner_draft(days=1, topic="AI")
+
+    assert draft.content == "Opinion"
+    assert draft.reference_url == "https://example.com/second"
+    assert "SOURCE:" not in draft.content
+
+
 def test_publish_draft_with_reference_builds_article() -> None:
     mock_linkedin = MagicMock(spec=LinkedInClient)
     mock_linkedin.create_post.return_value = "urn:li:share:12345"
