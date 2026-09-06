@@ -154,3 +154,152 @@ def test_generate_headliner_draft_no_articles() -> None:
     )
     with pytest.raises(NewsError, match="No news articles found"):
         engine.generate_headliner_draft(days=1, topic="obscure")
+
+
+def _headliner_engine_with_articles(
+    reply: str,
+) -> tuple[Engine, MagicMock, MagicMock]:
+    articles = [
+        NewsArticle(
+            title="First news",
+            source="Hacker News",
+            url="https://example.com/first",
+            description="First description",
+            published_at="2026-06-09T12:00:00Z",
+        ),
+        NewsArticle(
+            title="Second news",
+            source="Hacker News",
+            url="https://example.com/second",
+            description="Second description",
+            published_at="2026-06-09T13:00:00Z",
+        ),
+        NewsArticle(
+            title="Third news",
+            source="Hacker News",
+            url="https://example.com/third",
+            description="",
+            published_at="2026-06-09T14:00:00Z",
+        ),
+    ]
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_llm.generate_headliner_post.return_value = reply
+    mock_news_client = MagicMock(spec=NewsClient)
+    mock_news_client.fetch_tech_news.return_value = articles
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=mock_llm,
+        linkedin_client=MagicMock(spec=LinkedInClient),
+        news_client=mock_news_client,
+    )
+    return engine, mock_llm, mock_news_client
+
+
+def test_generate_headliner_draft_source_marker_selects_article() -> None:
+    engine, _, _ = _headliner_engine_with_articles(
+        "Opinion about the second story\n\nSOURCE: 2"
+    )
+    draft = engine.generate_headliner_draft(days=1, topic="AI")
+
+    assert draft.content == "Opinion about the second story"
+    assert draft.character_count == len("Opinion about the second story")
+    assert draft.reference_url == "https://example.com/second"
+    assert draft.reference_title == "Second news"
+    assert draft.reference_description == "Second description"
+
+
+def test_generate_headliner_draft_source_marker_missing_falls_back() -> None:
+    engine, _, _ = _headliner_engine_with_articles("Opinion without marker")
+    draft = engine.generate_headliner_draft(days=1, topic="AI")
+
+    assert draft.content == "Opinion without marker"
+    assert draft.reference_url == "https://example.com/first"
+    assert draft.reference_title == "First news"
+
+
+def test_generate_headliner_draft_source_marker_out_of_range_falls_back() -> None:
+    engine, _, _ = _headliner_engine_with_articles("Opinion\n\nSOURCE: 99")
+    draft = engine.generate_headliner_draft(days=1, topic="AI")
+
+    assert draft.content == "Opinion"
+    assert draft.reference_url == "https://example.com/first"
+
+
+def test_generate_headliner_draft_empty_description_is_none() -> None:
+    engine, _, _ = _headliner_engine_with_articles("Opinion\n\nSOURCE: 3")
+    draft = engine.generate_headliner_draft(days=1, topic="AI")
+
+    assert draft.reference_url == "https://example.com/third"
+    assert draft.reference_title == "Third news"
+    assert draft.reference_description is None
+
+
+def test_generate_headliner_draft_marker_case_insensitive() -> None:
+    engine, _, _ = _headliner_engine_with_articles("Opinion\n\nsource: 2")
+    draft = engine.generate_headliner_draft(days=1, topic="AI")
+
+    assert draft.content == "Opinion"
+    assert draft.reference_url == "https://example.com/second"
+
+
+def test_publish_draft_with_reference_builds_article() -> None:
+    mock_linkedin = MagicMock(spec=LinkedInClient)
+    mock_linkedin.create_post.return_value = "urn:li:share:12345"
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=MagicMock(spec=LLMClient),
+        linkedin_client=mock_linkedin,
+    )
+    draft = GeneratedDraft(
+        content="Test content",
+        reference_url="https://example.com/news",
+        reference_title="News title",
+        reference_description="News description",
+    )
+
+    engine.publish_draft(draft)
+
+    post = mock_linkedin.create_post.call_args[0][0]
+    assert post.article is not None
+    assert post.article.source == "https://example.com/news"
+    assert post.article.title == "News title"
+    assert post.article.description == "News description"
+
+
+def test_publish_draft_reference_description_falls_back_to_title() -> None:
+    mock_linkedin = MagicMock(spec=LinkedInClient)
+    mock_linkedin.create_post.return_value = "urn:li:share:12345"
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=MagicMock(spec=LLMClient),
+        linkedin_client=mock_linkedin,
+    )
+    draft = GeneratedDraft(
+        content="Test content",
+        reference_url="https://example.com/news",
+        reference_title="News title",
+        reference_description=None,
+    )
+
+    engine.publish_draft(draft)
+
+    post = mock_linkedin.create_post.call_args[0][0]
+    assert post.article is not None
+    assert post.article.title == "News title"
+    assert post.article.description == "News title"
+
+
+def test_publish_draft_without_reference_is_text_only() -> None:
+    mock_linkedin = MagicMock(spec=LinkedInClient)
+    mock_linkedin.create_post.return_value = "urn:li:share:12345"
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=MagicMock(spec=LLMClient),
+        linkedin_client=mock_linkedin,
+    )
+    draft = GeneratedDraft(content="Test content")
+
+    engine.publish_draft(draft)
+
+    post = mock_linkedin.create_post.call_args[0][0]
+    assert post.article is None

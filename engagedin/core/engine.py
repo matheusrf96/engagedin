@@ -1,15 +1,40 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
 
 from engagedin.core.config import settings
-from engagedin.core.models import GeneratedDraft, Post, PostRuleset
+from engagedin.core.models import ArticleRef, GeneratedDraft, Post, PostRuleset
 from engagedin.core.schedule import is_best_time
 from engagedin.linkedin.client import LinkedInClient
 from engagedin.llm.client import LLMClient
 from engagedin.news.client import NewsClient, NewsError
+from engagedin.news.models import NewsArticle
 from engagedin.rules.loader import load_ruleset
+
+SOURCE_LINE_RE = re.compile(r"^\s*SOURCE:\s*(\d+)\s*$", re.IGNORECASE)
+
+
+def _split_reference(
+    content: str, articles: list[NewsArticle]
+) -> tuple[str, NewsArticle]:
+    """Strip a trailing SOURCE marker and map it back to the chosen article.
+
+    Falls back to the top-ranked article when the marker is missing,
+    malformed, or its index is out of range.
+    """
+    lines = content.splitlines()
+    match = SOURCE_LINE_RE.match(lines[-1]) if lines else None
+    article: NewsArticle | None = None
+    if match is not None:
+        index = int(match.group(1))
+        if 1 <= index <= len(articles):
+            article = articles[index - 1]
+        content = "\n".join(lines[:-1]).rstrip("\n")
+    if article is None:
+        article = articles[0]
+    return content, article
 
 
 class Engine:
@@ -49,12 +74,16 @@ class Engine:
                 f"No news articles found for topic '{topic}' in the last {days} day(s)"
             )
         news_context = NewsClient.format_articles(articles)
-        content = self.llm.generate_headliner_post(
+        reply = self.llm.generate_headliner_post(
             topic, news_context, self.ruleset, days=days
         )
+        content, article = _split_reference(reply, articles)
         return GeneratedDraft(
             content=content,
             character_count=len(content),
+            reference_url=article.url,
+            reference_title=article.title,
+            reference_description=article.description or None,
         )
 
     def publish_draft(self, draft: GeneratedDraft) -> str:
@@ -65,9 +94,22 @@ class Engine:
         else:
             author = settings.linkedin_user_urn
 
+        article = None
+        if draft.reference_url:
+            article = ArticleRef(
+                source=draft.reference_url,
+                title=draft.reference_title or draft.reference_url,
+                description=(
+                    draft.reference_description
+                    or draft.reference_title
+                    or draft.reference_url
+                ),
+            )
+
         post = Post(
             author=author,
             commentary=draft.content,
+            article=article,
         )
         post_urn = linkedin.create_post(post)
         return post_urn
