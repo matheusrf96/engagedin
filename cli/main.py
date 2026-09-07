@@ -11,6 +11,7 @@ from rich.prompt import Confirm
 from engagedin.core.config import settings
 from engagedin.core.engine import Engine
 from engagedin.core.env import save_env_values
+from engagedin.core.languages import resolve_language
 from engagedin.linkedin.auth import OAuthError, run_oauth_login
 from engagedin.linkedin.client import LinkedInClient, LinkedInError
 from engagedin.llm.client import LLMConfigError
@@ -25,6 +26,20 @@ KNOWN_ERRORS = (LLMConfigError, NewsError, LinkedInError)
 def _fail(message: str) -> NoReturn:
     console.print(f"[red]{message}[/red]")
     raise SystemExit(1)
+
+
+def _resolve_language_option(language: str | None) -> str | None:
+    if language is None:
+        return None
+    try:
+        return resolve_language(language)
+    except ValueError as e:
+        _fail(f"Invalid language tag: {e}")
+
+
+def _panel_title(label: str, language: str | None, count: int) -> str:
+    language_part = f" ({language})" if language else ""
+    return f"📝 {label}{language_part} ({count} chars)"
 
 
 @click.group()
@@ -94,22 +109,31 @@ def auth_status() -> None:
 @click.argument("topic")
 @click.option("--rules", "-r", help="Path to custom ruleset YAML")
 @click.option(
+    "--language",
+    "-l",
+    default=None,
+    help="BCP-47 tag for the post language (e.g. en, pt-BR, zh-Hans, ru, ar)",
+)
+@click.option(
     "--yes", "-y", is_flag=True, help="Skip confirmation prompt"
 )
-def post(topic: str, rules: str | None, yes: bool) -> None:
+def post(
+    topic: str, rules: str | None, language: str | None, yes: bool
+) -> None:
     """Generate and publish a LinkedIn post about TOPIC."""
+    resolved_language = _resolve_language_option(language)
     engine = Engine(rules_path=rules)
 
     try:
         with console.status("[bold green]Generating post draft..."):
-            draft = engine.generate_draft(topic)
+            draft = engine.generate_draft(topic, language=resolved_language)
     except KNOWN_ERRORS as e:
         _fail(f"Could not generate the post: {e}")
 
     console.print(
         Panel(
             draft.content,
-            title=f"📝 Draft ({draft.character_count} chars)",
+            title=_panel_title("Draft", resolved_language, draft.character_count),
             border_style="blue",
         )
     )
@@ -145,20 +169,27 @@ def post(topic: str, rules: str | None, yes: bool) -> None:
 @cli.command()
 @click.argument("topic")
 @click.option("--rules", "-r", help="Path to custom ruleset YAML")
-def draft(topic: str, rules: str | None) -> None:
+@click.option(
+    "--language",
+    "-l",
+    default=None,
+    help="BCP-47 tag for the post language (e.g. en, pt-BR, zh-Hans, ru, ar)",
+)
+def draft(topic: str, rules: str | None, language: str | None) -> None:
     """Generate a draft post without publishing."""
+    resolved_language = _resolve_language_option(language)
     engine = Engine(rules_path=rules)
 
     try:
         with console.status("[bold green]Generating post draft..."):
-            draft = engine.generate_draft(topic)
+            draft = engine.generate_draft(topic, language=resolved_language)
     except KNOWN_ERRORS as e:
         _fail(f"Could not generate the post: {e}")
 
     console.print(
         Panel(
             draft.content,
-            title=f"📝 Draft ({draft.character_count} chars)",
+            title=_panel_title("Draft", resolved_language, draft.character_count),
             border_style="blue",
         )
     )
@@ -180,24 +211,35 @@ def draft(topic: str, rules: str | None) -> None:
 )
 @click.option("--rules", "-r", help="Path to custom ruleset YAML")
 @click.option(
+    "--language",
+    "-l",
+    default=None,
+    help="BCP-47 tag for the post language (e.g. en, pt-BR, zh-Hans, ru, ar)",
+)
+@click.option(
     "--yes", "-y", is_flag=True, help="Skip confirmation prompt"
 )
 def headliner(
-    days: int, topic: str, rules: str | None, yes: bool
+    days: int, topic: str, rules: str | None, language: str | None, yes: bool
 ) -> None:
     """Generate an opinionated LinkedIn post based on recent tech news."""
+    resolved_language = _resolve_language_option(language)
     engine = Engine(rules_path=rules)
 
     try:
         with console.status("[bold green]Fetching latest tech news..."):
-            draft = engine.generate_headliner_draft(days=days, topic=topic)
+            draft = engine.generate_headliner_draft(
+                days=days, topic=topic, language=resolved_language
+            )
     except KNOWN_ERRORS as e:
         _fail(f"Could not generate the headliner: {e}")
 
     console.print(
         Panel(
             draft.content,
-            title=f"📝 Headliner Draft ({draft.character_count} chars)",
+            title=_panel_title(
+                "Headliner Draft", resolved_language, draft.character_count
+            ),
             border_style="blue",
         )
     )
