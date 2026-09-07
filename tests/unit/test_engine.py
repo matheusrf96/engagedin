@@ -29,6 +29,49 @@ def test_generate_draft() -> None:
     assert draft.character_count == len("Test post content")
 
 
+def test_generate_draft_language_override() -> None:
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_llm.generate_post.return_value = "Тестовый пост"
+    engine = Engine(ruleset=PostRuleset(), llm_client=mock_llm)
+
+    engine.generate_draft("тема", language="ru")
+
+    ruleset_arg = mock_llm.generate_post.call_args[0][1]
+    assert ruleset_arg.language == "ru"
+    assert engine.ruleset.language == "en"
+
+
+def test_generate_draft_language_none_uses_ruleset() -> None:
+    mock_llm = MagicMock(spec=LLMClient)
+    mock_llm.generate_post.return_value = "Post"
+    engine = Engine(
+        ruleset=PostRuleset(language="pt-BR"), llm_client=mock_llm
+    )
+
+    engine.generate_draft("topic")
+
+    ruleset_arg = mock_llm.generate_post.call_args[0][1]
+    assert ruleset_arg.language == "pt-BR"
+
+
+def test_generate_draft_invalid_language_raises() -> None:
+    engine = Engine(ruleset=PostRuleset(), llm_client=MagicMock(spec=LLMClient))
+
+    with pytest.raises(ValueError, match="Invalid language tag"):
+        engine.generate_draft("topic", language="not a tag!")
+
+
+def test_generate_headliner_draft_language_override() -> None:
+    engine, mock_llm, _ = _headliner_engine_with_articles(
+        "رأيي في الخبر\n\nSOURCE: 2"
+    )
+    engine.generate_headliner_draft(days=1, topic="AI", language="ar")
+
+    ruleset_arg = mock_llm.generate_headliner_post.call_args[0][2]
+    assert ruleset_arg.language == "ar"
+    assert engine.ruleset.language == "en"
+
+
 @patch("engagedin.core.engine.settings")
 def test_publish_draft_with_urn(
     mock_engine_settings: MagicMock,
@@ -242,6 +285,14 @@ def test_generate_headliner_draft_marker_case_insensitive() -> None:
     assert draft.reference_url == "https://example.com/second"
 
 
+def test_generate_headliner_draft_marker_full_width_colon() -> None:
+    engine, _, _ = _headliner_engine_with_articles("观点\n\nSOURCE：2")
+    draft = engine.generate_headliner_draft(days=1, topic="AI")
+
+    assert draft.content == "观点"
+    assert draft.reference_url == "https://example.com/second"
+
+
 def test_generate_headliner_draft_marker_with_trailing_blank_lines() -> None:
     engine, _, _ = _headliner_engine_with_articles(
         "Opinion\n\nSOURCE: 2\n\n\n"
@@ -314,3 +365,20 @@ def test_publish_draft_without_reference_is_text_only() -> None:
 
     post = mock_linkedin.create_post.call_args[0][0]
     assert post.article is None
+
+
+def test_publish_draft_non_latin_commentary_verbatim() -> None:
+    mock_linkedin = MagicMock(spec=LinkedInClient)
+    mock_linkedin.create_post.return_value = "urn:li:share:12345"
+    engine = Engine(
+        ruleset=PostRuleset(),
+        llm_client=MagicMock(spec=LLMClient),
+        linkedin_client=mock_linkedin,
+    )
+    chinese_content = "人工智能正在改变商业世界 #科技"
+    draft = GeneratedDraft(content=chinese_content)
+
+    engine.publish_draft(draft)
+
+    post = mock_linkedin.create_post.call_args[0][0]
+    assert post.commentary == chinese_content
