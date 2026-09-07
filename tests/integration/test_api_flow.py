@@ -107,6 +107,46 @@ async def test_headliner_reference_roundtrip(
 
 
 @patch("api.services.posts.Engine")
+async def test_language_roundtrip(
+    mock_engine_cls: MagicMock,
+    async_client: AsyncClient,
+) -> None:
+    mock_engine_cls.return_value.generate_draft.return_value = GeneratedDraft(
+        content="中文集成内容", character_count=6
+    )
+
+    resp = await async_client.post(
+        "/api/v1/drafts",
+        json={"topic": "integration", "language": "zh-Hans"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["language"] == "zh-Hans"
+    engine_language = mock_engine_cls.return_value.generate_draft.call_args[1][
+        "language"
+    ]
+    assert engine_language == "zh-Hans"
+
+    post_id = resp.json()["id"]
+    resp = await async_client.get(f"/api/v1/posts/{post_id}")
+    assert resp.status_code == 200
+    assert resp.json()["language"] == "zh-Hans"
+
+
+@patch("api.services.posts.Engine")
+async def test_language_omitted_stores_null(
+    mock_engine_cls: MagicMock,
+    async_client: AsyncClient,
+) -> None:
+    mock_engine_cls.return_value.generate_draft.return_value = GeneratedDraft(
+        content="Default language draft", character_count=21
+    )
+
+    resp = await async_client.post("/api/v1/drafts", json={"topic": "integration"})
+    assert resp.status_code == 201
+    assert resp.json()["language"] is None
+
+
+@patch("api.services.posts.Engine")
 async def test_publish_linkedin_failure_marks_failed(
     mock_engine_cls: MagicMock,
     async_client: AsyncClient,

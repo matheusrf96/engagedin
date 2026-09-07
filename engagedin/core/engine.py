@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from engagedin.core.config import settings
+from engagedin.core.languages import resolve_language
 from engagedin.core.models import ArticleRef, GeneratedDraft, Post, PostRuleset
 from engagedin.core.schedule import is_best_time
 from engagedin.linkedin.client import LinkedInClient
@@ -13,7 +14,7 @@ from engagedin.news.client import NewsClient, NewsError
 from engagedin.news.models import NewsArticle
 from engagedin.rules.loader import load_ruleset
 
-SOURCE_LINE_RE = re.compile(r"^\s*SOURCE:\s*(\d+)\s*$", re.IGNORECASE)
+SOURCE_LINE_RE = re.compile(r"^\s*SOURCE[：:]\s*(\d+)\s*$", re.IGNORECASE)
 
 
 def _split_reference(
@@ -57,8 +58,19 @@ class Engine:
             self.linkedin = LinkedInClient()
         return self.linkedin
 
-    def generate_draft(self, topic: str) -> GeneratedDraft:
-        content = self.llm.generate_post(topic, self.ruleset)
+    def _effective_ruleset(self, language: str | None) -> PostRuleset:
+        if language is None:
+            return self.ruleset
+        return self.ruleset.model_copy(
+            update={"language": resolve_language(language)}
+        )
+
+    def generate_draft(
+        self, topic: str, language: str | None = None
+    ) -> GeneratedDraft:
+        content = self.llm.generate_post(
+            topic, self._effective_ruleset(language)
+        )
         return GeneratedDraft(
             content=content,
             character_count=len(content),
@@ -68,6 +80,7 @@ class Engine:
         self,
         days: int = 1,
         topic: str = "technology",
+        language: str | None = None,
     ) -> GeneratedDraft:
         articles = self.news.fetch_tech_news(days=days, topic=topic)
         if not articles:
@@ -76,7 +89,7 @@ class Engine:
             )
         news_context = NewsClient.format_articles(articles)
         reply = self.llm.generate_headliner_post(
-            topic, news_context, self.ruleset, days=days
+            topic, news_context, self._effective_ruleset(language), days=days
         )
         content, article = _split_reference(reply, articles)
         return GeneratedDraft(

@@ -107,6 +107,81 @@ def test_draft_with_rules(mock_engine_cls: MagicMock, runner: CliRunner) -> None
 
 
 @patch("cli.main.Engine")
+def test_draft_with_language(
+    mock_engine_cls: MagicMock, runner: CliRunner
+) -> None:
+    mock_engine = _mock_engine()
+    mock_engine.generate_draft.return_value = GeneratedDraft(
+        content="Пост про ИИ",
+        character_count=11,
+    )
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(
+        cli, ["draft", "ИИ в бизнесе", "--language", "ru"]
+    )
+    assert result.exit_code == 0
+    assert "Пост про ИИ" in result.output
+    mock_engine.generate_draft.assert_called_once_with(
+        "ИИ в бизнесе", language="ru"
+    )
+
+
+@patch("cli.main.Engine")
+def test_draft_language_shown_in_panel_title(
+    mock_engine_cls: MagicMock, runner: CliRunner
+) -> None:
+    mock_engine = _mock_engine()
+    mock_engine.generate_draft.return_value = GeneratedDraft(
+        content="内容",
+        character_count=2,
+    )
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(cli, ["draft", "主题", "--language", "zh-Hans"])
+    assert result.exit_code == 0
+    assert "zh-Hans" in result.output
+
+
+@patch("cli.main.Engine")
+def test_draft_with_invalid_language(
+    mock_engine_cls: MagicMock, runner: CliRunner
+) -> None:
+    result = runner.invoke(cli, ["draft", "topic", "--language", "not a tag!"])
+    assert result.exit_code == 1
+    assert "Invalid language tag" in result.output
+    mock_engine_cls.assert_not_called()
+
+
+@patch("cli.main.Engine")
+def test_post_with_language(
+    mock_engine_cls: MagicMock, runner: CliRunner
+) -> None:
+    mock_engine = _mock_engine()
+    mock_engine.generate_draft.return_value = GeneratedDraft(
+        content="منشور تجريبي",
+        character_count=12,
+    )
+    mock_engine.publish_draft.return_value = "urn:li:share:12345"
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(
+        cli, ["post", "my topic", "--yes", "--language", "ar"]
+    )
+    assert result.exit_code == 0
+    assert "منشور تجريبي" in result.output
+    mock_engine.generate_draft.assert_called_once_with(
+        "my topic", language="ar"
+    )
+
+
+@patch("cli.main.Engine")
+def test_post_with_invalid_language(
+    mock_engine_cls: MagicMock, runner: CliRunner
+) -> None:
+    result = runner.invoke(cli, ["post", "my topic", "--language", "zzz!!"])
+    assert result.exit_code == 1
+    assert "Invalid language tag" in result.output
+
+
+@patch("cli.main.Engine")
 def test_draft_generation_error(
     mock_engine_cls: MagicMock, runner: CliRunner
 ) -> None:
@@ -119,7 +194,8 @@ def test_draft_generation_error(
     assert "LLM_API_KEY is not set" in result.output
 
 
-def test_draft_missing_llm_key(runner: CliRunner) -> None:
+def test_draft_missing_llm_key(runner: CliRunner, monkeypatch) -> None:
+    monkeypatch.setattr("cli.main.settings.llm_api_key", "")
     result = runner.invoke(cli, ["draft", "some topic"])
     assert result.exit_code == 1
     assert "LLM_API_KEY is not set" in result.output
@@ -229,7 +305,8 @@ def test_rules_show(runner: CliRunner) -> None:
     assert "professional" in result.output
 
 
-def test_config_show(runner: CliRunner) -> None:
+def test_config_show(runner: CliRunner, monkeypatch) -> None:
+    monkeypatch.setattr("cli.main.settings.llm_model", "deepseek-chat")
     result = runner.invoke(cli, ["config", "show"])
     assert result.exit_code == 0
     assert "Configuration" in result.output
@@ -332,7 +409,7 @@ def test_headliner_defaults(
     assert "Headliner Draft" in result.output
     assert "Reference article" not in result.output
     mock_engine.generate_headliner_draft.assert_called_once_with(
-        days=1, topic="technology"
+        days=1, topic="technology", language=None
     )
 
 
@@ -374,8 +451,40 @@ def test_headliner_with_options(
     assert result.exit_code == 0
     assert "AI opinion piece" in result.output
     mock_engine.generate_headliner_draft.assert_called_once_with(
-        days=3, topic="AI"
+        days=3, topic="AI", language=None
     )
+
+
+@patch("cli.main.Engine")
+def test_headliner_with_language(
+    mock_engine_cls: MagicMock, runner: CliRunner
+) -> None:
+    mock_engine = _mock_engine()
+    mock_engine.generate_headliner_draft.return_value = GeneratedDraft(
+        content="Opinião sobre IA",
+        character_count=16,
+    )
+    mock_engine_cls.return_value = mock_engine
+    result = runner.invoke(
+        cli, ["headliner", "--yes", "--language", "pt-BR"]
+    )
+
+    assert result.exit_code == 0
+    assert "Opinião sobre IA" in result.output
+    assert "pt-BR" in result.output
+    mock_engine.generate_headliner_draft.assert_called_once_with(
+        days=1, topic="technology", language="pt-BR"
+    )
+
+
+@patch("cli.main.Engine")
+def test_headliner_with_invalid_language(
+    mock_engine_cls: MagicMock, runner: CliRunner
+) -> None:
+    result = runner.invoke(cli, ["headliner", "--language", "1"])
+    assert result.exit_code == 1
+    assert "Invalid language tag" in result.output
+    mock_engine_cls.assert_not_called()
 
 
 @patch("cli.main.Engine")

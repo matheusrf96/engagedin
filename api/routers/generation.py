@@ -21,6 +21,7 @@ async def create_draft(
             topic=request.topic,
             source=DraftSource(request.source),
             days=request.days,
+            language=request.language,
         )
     except ExternalServiceError as e:
         raise HTTPException(

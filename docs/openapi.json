@@ -367,6 +367,17 @@
             "minimum": 1.0,
             "title": "Days",
             "default": 1
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
           }
         },
         "type": "object",
@@ -474,6 +485,17 @@
             ],
             "title": "Reference Description"
           },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
           "linkedin_post_urn": {
             "anyOf": [
               {
@@ -530,6 +552,7 @@
           "reference_url",
           "reference_title",
           "reference_description",
+          "language",
           "linkedin_post_urn",
           "error",
           "created_at",

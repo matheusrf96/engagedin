@@ -7,6 +7,7 @@ from api.exceptions import ExternalServiceError
 from api.models import DraftSource, PostRecord, PostStatus
 from api.repositories.posts import PostRepository
 from engagedin.core.engine import Engine
+from engagedin.core.languages import resolve_language
 from engagedin.core.models import GeneratedDraft
 from engagedin.linkedin.client import LinkedInError
 from engagedin.llm.client import LLMConfigError
@@ -31,25 +32,48 @@ class PostService:
         self.repo = repository
 
     async def _generate(
-        self, topic: str, source: DraftSource, days: int
+        self,
+        topic: str,
+        source: DraftSource,
+        days: int,
+        language: str | None = None,
     ) -> GeneratedDraft:
         if source == DraftSource.HEADLINER:
             return await asyncio.to_thread(
-                self._generate_headliner, topic, days
+                self._generate_headliner, topic, days, language
             )
-        return await asyncio.to_thread(self._generate_standard, topic)
+        return await asyncio.to_thread(
+            self._generate_standard, topic, language
+        )
 
-    def _generate_standard(self, topic: str) -> GeneratedDraft:
-        return Engine().generate_draft(topic)
+    def _generate_standard(
+        self, topic: str, language: str | None = None
+    ) -> GeneratedDraft:
+        return Engine().generate_draft(topic, language=language)
 
-    def _generate_headliner(self, topic: str, days: int) -> GeneratedDraft:
-        return Engine().generate_headliner_draft(topic=topic, days=days)
+    def _generate_headliner(
+        self, topic: str, days: int, language: str | None = None
+    ) -> GeneratedDraft:
+        return Engine().generate_headliner_draft(
+            topic=topic, days=days, language=language
+        )
 
     async def create_draft(
-        self, topic: str, source: DraftSource, days: int
+        self,
+        topic: str,
+        source: DraftSource,
+        days: int,
+        language: str | None = None,
     ) -> PostRecord:
+        resolved_language: str | None = None
+        if language is not None:
+            try:
+                resolved_language = resolve_language(language)
+            except ValueError as e:
+                raise ExternalServiceError(str(e), status_code=400) from e
+
         try:
-            draft = await self._generate(topic, source, days)
+            draft = await self._generate(topic, source, days, resolved_language)
         except LLMConfigError as e:
             raise ExternalServiceError(str(e), status_code=400) from e
         except NewsError as e:
@@ -64,6 +88,7 @@ class PostService:
             reference_url=draft.reference_url,
             reference_title=draft.reference_title,
             reference_description=draft.reference_description,
+            language=resolved_language,
         )
         return await self.repo.add(record)
 

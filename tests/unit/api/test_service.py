@@ -36,6 +36,7 @@ def _mock_record(
     reference_url: str | None = None,
     reference_title: str | None = None,
     reference_description: str | None = None,
+    language: str | None = None,
 ) -> MagicMock:
     record = MagicMock()
     record.id = id
@@ -47,6 +48,7 @@ def _mock_record(
     record.reference_url = reference_url
     record.reference_title = reference_title
     record.reference_description = reference_description
+    record.language = language
     record.linkedin_post_urn = linkedin_post_urn
     record.error = error
     record.created_at = datetime(2026, 1, 1, tzinfo=UTC)
@@ -108,6 +110,96 @@ async def test_create_draft_standard(mock_engine_cls: MagicMock) -> None:
 
 
 @patch("api.services.posts.Engine")
+async def test_create_draft_language_passed_and_stored(
+    mock_engine_cls: MagicMock,
+) -> None:
+    draft = MagicMock()
+    draft.content = "生成されたコンテンツ"
+    draft.character_count = 9
+    draft.reference_url = None
+    draft.reference_title = None
+    draft.reference_description = None
+    mock_engine_cls.return_value.generate_draft.return_value = draft
+
+    repo = _mock_repository()
+    service = PostService(repo)
+    await service.create_draft("python", DraftSource.STANDARD, 1, language="ja")
+
+    engine_language = mock_engine_cls.return_value.generate_draft.call_args[1][
+        "language"
+    ]
+    assert engine_language == "ja"
+    added_record = repo.add.call_args[0][0]
+    assert added_record.language == "ja"
+
+
+@patch("api.services.posts.Engine")
+async def test_create_draft_language_normalization(
+    mock_engine_cls: MagicMock,
+) -> None:
+    draft = MagicMock()
+    draft.content = "Conteúdo"
+    draft.character_count = 8
+    draft.reference_url = None
+    draft.reference_title = None
+    draft.reference_description = None
+    mock_engine_cls.return_value.generate_draft.return_value = draft
+
+    repo = _mock_repository()
+    service = PostService(repo)
+    await service.create_draft(
+        "python", DraftSource.STANDARD, 1, language="pt-br"
+    )
+
+    engine_language = mock_engine_cls.return_value.generate_draft.call_args[1][
+        "language"
+    ]
+    assert engine_language == "pt-BR"
+    added_record = repo.add.call_args[0][0]
+    assert added_record.language == "pt-BR"
+
+
+@patch("api.services.posts.Engine")
+async def test_create_draft_language_none_stores_null(
+    mock_engine_cls: MagicMock,
+) -> None:
+    draft = MagicMock()
+    draft.content = "Generated content"
+    draft.character_count = 18
+    draft.reference_url = None
+    draft.reference_title = None
+    draft.reference_description = None
+    mock_engine_cls.return_value.generate_draft.return_value = draft
+
+    repo = _mock_repository()
+    service = PostService(repo)
+    await service.create_draft("python", DraftSource.STANDARD, 1)
+
+    engine_language = mock_engine_cls.return_value.generate_draft.call_args[1][
+        "language"
+    ]
+    assert engine_language is None
+    added_record = repo.add.call_args[0][0]
+    assert added_record.language is None
+
+
+@patch("api.services.posts.Engine")
+async def test_create_draft_invalid_language_400(
+    mock_engine_cls: MagicMock,
+) -> None:
+    repo = _mock_repository()
+    service = PostService(repo)
+    with pytest.raises(ExternalServiceError) as exc_info:
+        await service.create_draft(
+            "python", DraftSource.STANDARD, 1, language="not a tag!"
+        )
+    assert exc_info.value.status_code == 400
+    assert "Invalid language tag" in str(exc_info.value)
+    mock_engine_cls.return_value.generate_draft.assert_not_called()
+    repo.add.assert_not_awaited()
+
+
+@patch("api.services.posts.Engine")
 async def test_create_draft_headliner(mock_engine_cls: MagicMock) -> None:
     draft = MagicMock()
     draft.content = "Headliner content"
@@ -126,6 +218,28 @@ async def test_create_draft_headliner(mock_engine_cls: MagicMock) -> None:
     assert added_record.reference_url == "https://example.com/news"
     assert added_record.reference_title == "News title"
     assert added_record.reference_description == "News description"
+
+
+@patch("api.services.posts.Engine")
+async def test_create_draft_non_latin_content_verbatim(
+    mock_engine_cls: MagicMock,
+) -> None:
+    arabic_content = "الذكاء الاصطناعي يغير عالم الأعمال #تقنية"
+    draft = MagicMock()
+    draft.content = arabic_content
+    draft.character_count = len(arabic_content)
+    draft.reference_url = None
+    draft.reference_title = None
+    draft.reference_description = None
+    mock_engine_cls.return_value.generate_draft.return_value = draft
+
+    repo = _mock_repository()
+    service = PostService(repo)
+    await service.create_draft("python", DraftSource.STANDARD, 1, language="ar")
+
+    added_record = repo.add.call_args[0][0]
+    assert added_record.content == arabic_content
+    assert added_record.character_count == len(arabic_content)
 
 
 @patch("api.services.posts.Engine")

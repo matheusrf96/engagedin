@@ -39,6 +39,7 @@ class ScheduleRule(BaseModel):
 
 
 class PostRuleset(BaseModel):
+    language: str = "en"
     tone: Tone = Tone.professional
     min_length: int = 150
     max_length: int = 3000

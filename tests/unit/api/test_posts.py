@@ -23,6 +23,7 @@ def _mock_record(
     reference_url: str | None = None,
     reference_title: str | None = None,
     reference_description: str | None = None,
+    language: str | None = None,
     linkedin_post_urn: str | None = None,
     error: str | None = None,
     published_at: datetime | None = None,
@@ -37,6 +38,7 @@ def _mock_record(
     record.reference_url = reference_url
     record.reference_title = reference_title
     record.reference_description = reference_description
+    record.language = language
     record.linkedin_post_urn = linkedin_post_urn
     record.error = error
     record.created_at = datetime(2026, 1, 1, tzinfo=UTC)
@@ -83,6 +85,17 @@ async def test_get_post() -> None:
         response = await client.get("/api/v1/posts/1")
     assert response.status_code == 200
     assert response.json()["id"] == 1
+    assert response.json()["language"] is None
+
+
+async def test_get_post_includes_language() -> None:
+    record = _mock_record(language="ru")
+    mock_service = AsyncMock()
+    mock_service.get = AsyncMock(return_value=record)
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.get("/api/v1/posts/1")
+    assert response.status_code == 200
+    assert response.json()["language"] == "ru"
 
 
 async def test_get_post_not_found() -> None:

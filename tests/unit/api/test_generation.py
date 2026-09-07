@@ -22,6 +22,7 @@ def _mock_record(
     reference_url: str | None = None,
     reference_title: str | None = None,
     reference_description: str | None = None,
+    language: str | None = None,
 ) -> MagicMock:
     record = MagicMock()
     record.id = id
@@ -33,6 +34,7 @@ def _mock_record(
     record.reference_url = reference_url
     record.reference_title = reference_title
     record.reference_description = reference_description
+    record.language = language
     record.linkedin_post_urn = None
     record.error = None
     record.created_at = datetime(2026, 1, 1, tzinfo=UTC)
@@ -83,6 +85,56 @@ async def test_create_draft_headliner() -> None:
     assert data["reference_url"] == "https://example.com/news"
     assert data["reference_title"] == "News title"
     assert data["reference_description"] == "News description"
+
+
+async def test_create_draft_with_language() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(
+        return_value=_mock_record(language="ru", content="Пост про Python")
+    )
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post(
+            "/api/v1/drafts", json={"topic": "python", "language": "ru"}
+        )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["language"] == "ru"
+    mock_service.create_draft.assert_awaited_once_with(
+        topic="python",
+        source=DraftSource.STANDARD,
+        days=1,
+        language="ru",
+    )
+
+
+async def test_create_draft_without_language() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(return_value=_mock_record())
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post("/api/v1/drafts", json={"topic": "python"})
+    assert response.status_code == 201
+    assert response.json()["language"] is None
+    mock_service.create_draft.assert_awaited_once_with(
+        topic="python",
+        source=DraftSource.STANDARD,
+        days=1,
+        language=None,
+    )
+
+
+async def test_create_draft_invalid_language_stored_as_service_error() -> None:
+    mock_service = AsyncMock()
+    mock_service.create_draft = AsyncMock(
+        side_effect=ExternalServiceError(
+            "Invalid language tag: 'not a tag!'", status_code=400
+        )
+    )
+    async with _make_client_with_mock(mock_service) as client:
+        response = await client.post(
+            "/api/v1/drafts", json={"topic": "python", "language": "not a tag!"}
+        )
+    assert response.status_code == 400
+    assert "Invalid language tag" in response.json()["detail"]
 
 
 async def test_create_draft_llm_config_error() -> None:
