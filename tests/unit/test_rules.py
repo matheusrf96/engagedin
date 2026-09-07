@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from engagedin.core.models import Tone
 from engagedin.rules.loader import load_ruleset
 
 
 def test_load_defaults() -> None:
     ruleset = load_ruleset()
+    assert ruleset.language == "en"
     assert ruleset.tone == Tone.professional
     assert 100 <= ruleset.min_length <= 500
     assert 2000 <= ruleset.max_length <= 5000
@@ -23,6 +26,28 @@ def test_load_custom_file(tmp_path: Path) -> None:
     assert ruleset.tone == Tone.educational
     assert ruleset.min_length == 200
     assert ruleset.max_length == 1500
+    assert ruleset.language == "en"
+
+
+def test_load_custom_language(tmp_path: Path) -> None:
+    custom_yaml = tmp_path / "rules.yaml"
+    custom_yaml.write_text("language: pt-BR\n")
+    ruleset = load_ruleset(custom_yaml)
+    assert ruleset.language == "pt-BR"
+
+
+def test_load_custom_language_normalizes_tag(tmp_path: Path) -> None:
+    custom_yaml = tmp_path / "rules.yaml"
+    custom_yaml.write_text("language: ZH-hans\n")
+    ruleset = load_ruleset(custom_yaml)
+    assert ruleset.language == "zh-Hans"
+
+
+def test_load_invalid_language_raises(tmp_path: Path) -> None:
+    custom_yaml = tmp_path / "rules.yaml"
+    custom_yaml.write_text("language: not a tag!\n")
+    with pytest.raises(ValueError, match="Invalid language tag"):
+        load_ruleset(custom_yaml)
 
 
 def test_load_invalid_path_falls_back_to_defaults() -> None:

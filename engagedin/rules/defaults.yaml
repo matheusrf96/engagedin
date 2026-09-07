@@ -1,3 +1,4 @@
+language: en
 tone: professional
 min_length: 150
 max_length: 3000

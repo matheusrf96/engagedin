@@ -17,6 +17,7 @@ from engagedin.core.models import (
 
 def test_default_ruleset() -> None:
     ruleset = PostRuleset()
+    assert ruleset.language == "en"
     assert ruleset.tone == Tone.professional
     assert ruleset.min_length == 150
     assert ruleset.max_length == 3000
@@ -25,6 +26,11 @@ def test_default_ruleset() -> None:
     assert isinstance(ruleset.schedule, ScheduleRule)
     assert ruleset.schedule.cooldown_hours == 4
     assert isinstance(ruleset.templates, TemplateRule)
+
+
+def test_custom_ruleset_language() -> None:
+    ruleset = PostRuleset(language="pt-BR")
+    assert ruleset.language == "pt-BR"
 
 
 def test_custom_ruleset() -> None:

@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from engagedin.core.config import settings
+from engagedin.core.languages import resolve_language
 from engagedin.core.models import (
     HashtagRule,
     PostRuleset,
@@ -34,6 +35,7 @@ def load_ruleset(path: str | Path | None = None) -> PostRuleset:
     templates_data = data.get("templates", {})
 
     return PostRuleset(
+        language=resolve_language(data.get("language", "en")),
         tone=data.get("tone", "professional"),
         min_length=data.get("min_length", 150),
         max_length=data.get("max_length", 3000),
