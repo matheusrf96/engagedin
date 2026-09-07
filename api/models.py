@@ -37,6 +37,7 @@ class PostRecord(Base):
     reference_url: Mapped[str | None] = mapped_column(String(2048))
     reference_title: Mapped[str | None] = mapped_column(String(1024))
     reference_description: Mapped[str | None] = mapped_column(Text)
+    language: Mapped[str | None] = mapped_column(String(12))
     linkedin_post_urn: Mapped[str | None] = mapped_column(String(120), unique=True)
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
