@@ -88,7 +88,7 @@
 
 ## REQ-ML-010 — Persistence
 
-- [x] `api/models.py`: `language: Mapped[str | None] = mapped_column(String(12))`
+- [x] `api/models.py`: `language: Mapped[str | None] = mapped_column(String(35))`
       on `PostRecord`; `create_draft` stores resolved tag or `NULL`
 - [x] Create `migrations/versions/0003_post_language.py` (`down_revision`
       `0002`) with symmetric downgrade

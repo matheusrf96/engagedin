@@ -47,6 +47,7 @@ the primary subtag, uppercase 2–3 letter alphabetic subtags, capitalize
 AND SHALL accept any tag matching `^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$`
 AND SHALL raise `ValueError` for empty, whitespace-only, or non-conforming
 values
+AND SHALL reject tags longer than the BCP-47 maximum of 35 characters
 WHILE the normalized tag is the single value consumed by all other layers.
 
 ### REQ-ML-002 — Display names
@@ -136,7 +137,7 @@ WHILE omitting `language` behaves exactly as today.
 
 ### REQ-ML-010 — Persistence
 
-THE SYSTEM SHALL add a nullable `language` column (`varchar(12)`) to the
+THE SYSTEM SHALL add a nullable `language` column (`varchar(35)`) to the
 `posts` table through Alembic revision `0003` (`down_revision` `0002`) with a
 symmetric downgrade
 AND `PostService.create_draft` SHALL store the resolved tag when one was

@@ -19,7 +19,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column(
         "posts",
-        sa.Column("language", sa.String(length=12), nullable=True),
+        sa.Column("language", sa.String(length=35), nullable=True),
     )
 
 

@@ -288,7 +288,7 @@ changes.
 ```python
 class PostRecord(Base):
     ...
-    language: Mapped[str | None] = mapped_column(String(12))
+    language: Mapped[str | None] = mapped_column(String(35))
 ```
 
 `migrations/versions/0003_post_language.py`:
@@ -298,14 +298,16 @@ revision: str = "0003"
 down_revision: str | None = "0002"
 
 def upgrade() -> None:
-    op.add_column("posts", sa.Column("language", sa.String(length=12), nullable=True))
+    op.add_column("posts", sa.Column("language", sa.String(length=35), nullable=True))
 
 def downgrade() -> None:
     op.drop_column("posts", "language")
 ```
 
-`varchar(12)` fits any conforming tag (primary + two subtags ≤ 12 chars, e.g.
-`zh-Hans` = 7). Existing rows keep `NULL`; no index or constraint is added.
+`varchar(35)` is the BCP-47 maximum tag length, so any conforming tag
+(including multi-subtag forms such as `ca-ES-valencia`) fits; `resolve_language`
+enforces the same 35-char bound so validation and storage always agree.
+Existing rows keep `NULL`; no index or constraint is added.
 
 ## 10. Unicode guarantees (REQ-ML-012)
 
@@ -377,7 +379,7 @@ confirm the LinkedIn feed renders the posts with correct script shaping/RTL.
   langdetect-style checks add dependencies, false failures (short posts,
   code-switching), and no recovery path. Deferred.
 - **ADR-ML-005 — Persist the requested language.** `posts.language` (nullable
-  `varchar(12)`) records explicitly requested languages for auditing and
+  `varchar(35)`) records explicitly requested languages for auditing and
   analytics; `NULL` cleanly means "ruleset default" and keeps pre-feature rows
   valid without a backfill.
 - **ADR-ML-006 — Case-aware hashtag phrasing.** `lowercase`/`uppercase`/

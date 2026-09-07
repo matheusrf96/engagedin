@@ -34,7 +34,7 @@ def _resolve_language_option(language: str | None) -> str | None:
     try:
         return resolve_language(language)
     except ValueError as e:
-        _fail(f"Invalid language tag: {e}")
+        _fail(str(e))
 
 
 def _panel_title(label: str, language: str | None, count: int) -> str:

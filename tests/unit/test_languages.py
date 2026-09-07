@@ -36,8 +36,27 @@ def test_resolve_language_three_letter_primary() -> None:
     assert resolve_language("fra") == "fra"
 
 
+def test_resolve_language_multi_subtag_tag() -> None:
+    assert resolve_language("ca-ES-valencia") == "ca-ES-valencia"
+
+
 def test_resolve_language_preserves_private_subtags() -> None:
     assert resolve_language("en-x-custom") == "en-x-custom"
+
+
+def test_resolve_language_max_length_allowed() -> None:
+    tag = "aa-" + "-".join(["bb"] * 11)
+    assert len(tag) == 35
+    resolved = resolve_language(tag)
+    assert len(resolved) == 35
+    assert resolved == "aa-" + "-".join(["BB"] * 11)
+
+
+def test_resolve_language_over_max_length_raises() -> None:
+    tag = "en-" + "-".join(["ab"] * 12)
+    assert len(tag) == 38
+    with pytest.raises(ValueError, match="Language tag too long"):
+        resolve_language(tag)
 
 
 def test_resolve_language_empty_raises() -> None:

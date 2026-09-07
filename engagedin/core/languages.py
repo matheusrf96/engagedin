@@ -4,6 +4,8 @@ import re
 
 LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$")
 
+LANGUAGE_TAG_MAX_LEN = 35
+
 LANGUAGE_NAMES: dict[str, str] = {
     "en": "English",
     "pt": "Portuguese",
@@ -53,12 +55,15 @@ def resolve_language(value: str) -> str:
     """Normalize and validate a BCP-47-style language tag.
 
     Lowercases the primary subtag, uppercases 2-3 letter alphabetic subtags,
-    and capitalizes 4-letter script subtags. Raises ``ValueError`` for empty
-    or non-conforming tags.
+    and capitalizes 4-letter script subtags. Raises ``ValueError`` for empty,
+    non-conforming, or overly long tags (over the BCP-47 maximum of 35
+    characters).
     """
     tag = value.strip()
     if not LANGUAGE_TAG_RE.match(tag):
         raise ValueError(f"Invalid language tag: {value!r}")
+    if len(tag) > LANGUAGE_TAG_MAX_LEN:
+        raise ValueError(f"Language tag too long: {value!r}")
 
     parts = tag.split("-")
     normalized = [parts[0].lower()]
