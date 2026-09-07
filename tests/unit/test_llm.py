@@ -6,6 +6,42 @@ import pytest
 
 from engagedin.core.models import PostRuleset
 from engagedin.llm.client import LLMClient, LLMConfigError
+from engagedin.llm.prompts import HEADLINER_USER_PROMPT, build_system_prompt
+
+
+def test_headliner_prompt_requires_ascii_source_marker() -> None:
+    assert "Regardless of the post language" in HEADLINER_USER_PROMPT
+    assert "exact ASCII format" in HEADLINER_USER_PROMPT
+
+
+def test_build_system_prompt_includes_language() -> None:
+    prompt = build_system_prompt(PostRuleset(language="ru"))
+    assert "Write the entire post in Russian" in prompt
+
+
+def test_build_system_prompt_language_display_override() -> None:
+    prompt = build_system_prompt(PostRuleset(language="zh-Hans"))
+    assert "Write the entire post in Simplified Chinese" in prompt
+
+
+def test_build_system_prompt_caseless_language_omits_hashtag_style() -> None:
+    for language in ("zh-Hans", "ar", "ja"):
+        prompt = build_system_prompt(PostRuleset(language=language))
+        assert "Use exactly 3 hashtags at the end" in prompt
+        assert "formatted in" not in prompt
+
+
+def test_build_system_prompt_case_bearing_keeps_hashtag_style() -> None:
+    prompt = build_system_prompt(PostRuleset())
+    assert (
+        "Use exactly 3 hashtags at the end, formatted in lowercase style"
+        in prompt
+    )
+
+
+def test_build_system_prompt_unknown_language_uses_raw_tag() -> None:
+    prompt = build_system_prompt(PostRuleset(language="zz"))
+    assert "Write the entire post in zz" in prompt
 
 
 @patch("engagedin.llm.client.settings")
@@ -74,10 +110,13 @@ def test_generate_post_custom_provider(
     assert mock_completion_fn.call_args[1]["model"] == "gpt-4o"
 
 
+@patch("engagedin.llm.client.settings")
 @patch("engagedin.llm.client.completion")
 def test_generate_post_missing_api_key(
     mock_completion_fn: MagicMock,
+    mock_settings: MagicMock,
 ) -> None:
+    mock_settings.llm_api_key = ""
     client = LLMClient(provider="deepseek", model="deepseek-chat", api_key=None)
     with pytest.raises(LLMConfigError, match="LLM_API_KEY is not set"):
         client.generate_post("some topic", PostRuleset())
@@ -99,10 +138,13 @@ def test_generate_post_local_provider_no_key(
     mock_completion_fn.assert_called_once()
 
 
+@patch("engagedin.llm.client.settings")
 @patch("engagedin.llm.client.completion")
 def test_generate_headliner_missing_api_key(
     mock_completion_fn: MagicMock,
+    mock_settings: MagicMock,
 ) -> None:
+    mock_settings.llm_api_key = ""
     client = LLMClient(provider="deepseek", model="deepseek-chat", api_key=None)
     with pytest.raises(LLMConfigError, match="LLM_API_KEY is not set"):
         client.generate_headliner_post("AI", "1. News", PostRuleset())

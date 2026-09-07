@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from engagedin.core.languages import has_case, language_display_name
 from engagedin.core.models import PostRuleset
 
 SYSTEM_PROMPT = """You are a LinkedIn content strategist.
@@ -7,9 +8,10 @@ Your task is to write engaging, professional LinkedIn posts
 that drive engagement and build authority.
 
 Follow these rules strictly:
+- Write the entire post in {language}
 - Write in a {tone} tone
 - Posts must be between {min_length} and {max_length} characters
-- Use exactly {hashtag_count} hashtags at the end, formatted in {hashtag_style} style
+- {hashtag_rule}
 - Start with a hook: {hook_types}
 - End with an outro: {outro_types}
 - Do not use emojis unless they add genuine value
@@ -23,13 +25,23 @@ def _format_enum_values(values: list[str]) -> str:
     return ", ".join(v.replace("_", " ") for v in values)
 
 
+def _hashtag_rule(ruleset: PostRuleset) -> str:
+    count = ruleset.hashtags.count
+    if has_case(ruleset.language):
+        return (
+            f"Use exactly {count} hashtags at the end, "
+            f"formatted in {ruleset.hashtags.style.value} style"
+        )
+    return f"Use exactly {count} hashtags at the end"
+
+
 def build_system_prompt(ruleset: PostRuleset) -> str:
     return SYSTEM_PROMPT.format(
+        language=language_display_name(ruleset.language),
         tone=ruleset.tone.value,
         min_length=ruleset.min_length,
         max_length=ruleset.max_length,
-        hashtag_count=ruleset.hashtags.count,
-        hashtag_style=ruleset.hashtags.style.value,
+        hashtag_rule=_hashtag_rule(ruleset),
         hook_types=_format_enum_values(
             [h.value for h in ruleset.templates.hooks]
         ),
@@ -63,5 +75,6 @@ news above.
 Do not include the article URL inside the post text; the URL will be attached
 as a link preview separately.
 
-End your reply with a final line on its own in the exact format:
+Regardless of the post language, end your reply with a final line on its own
+in the exact ASCII format:
 SOURCE: <number of the article from the list above that your post is about>"""
